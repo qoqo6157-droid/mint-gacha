@@ -703,6 +703,7 @@
               <label><span>SR %</span><input type="number" id="adminNormalSR" min="0" max="100" step="0.01" required></label>
               <label><span>R %</span><input type="number" id="adminNormalR" min="0" max="100" step="0.01" required></label>
               <label><span>SSR 교환 필요 PT</span><input type="number" id="adminNormalExchange" min="1" step="1" required></label>
+              <label><span>공용 기본 홈 캐릭터</span><select id="adminDefaultHomeCharacter"><option value="">지정 안 함</option></select></label>
               <button class="mint-button" type="submit">일반 설정 저장</button>
               <p class="admin-form-message" id="normalSettingsMessage"></p>
             </form>
@@ -804,7 +805,9 @@
               <p class="section-label">CHARACTER LIST</p>
               <h3>등록 캐릭터 / 표시 순서</h3>
             </div>
+            <button class="small-button" id="saveCharacterOrderButton" type="button">순서 저장</button>
           </div>
+          <p class="admin-sort-help">☰ 손잡이를 길게 눌러 드래그하거나 ↑ ↓ 버튼으로 순서를 바꾼 뒤 저장하세요.</p>
 
           <div class="admin-filter-tabs">
             <button class="admin-filter active" data-admin-filter="SSR">SSR</button>
@@ -891,6 +894,10 @@
             <div class="upload-grid">
               <label class="upload-box"><span>배너 이미지</span><input id="bannerImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>PNG/JPG/WEBP/GIF · 최대 10MB</small></label>
               <label class="upload-box"><span>사용자 폰트</span><input id="bannerFontInput" type="file" accept=".ttf,.otf,.woff,.woff2"><small>TTF/OTF/WOFF/WOFF2 · 최대 10MB</small></label>
+            </div>
+            <div class="banner-editor-preview" id="bannerEditorPreview" title="원하는 위치를 클릭하면 문구 위치가 이동해요.">
+              <div class="banner-editor-preview-text" id="bannerEditorPreviewText">이벤트 문구</div>
+              <small>미리보기 클릭으로 X/Y 위치 이동</small>
             </div>
             <div class="admin-form-actions">
               <button class="mint-button" type="submit">배너 저장</button>
@@ -1061,6 +1068,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=7"></script>
+  <script src="script.js?v=8"></script>
 </body>
 </html>

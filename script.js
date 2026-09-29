@@ -3,6 +3,8 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_nHK7pXiqP5a3_GrMRw17qw_L0zdL70n
 
 const SAVE_KEY = "mintGachaSave_v1";
 const LOCAL_BACKUP_KEY = "mintGachaLocalBackupBeforeCloud_v1";
+const RHYTHM_SPEED_KEY = "mintRhythmFallSpeed_v1";
+const RHYTHM_OFFSET_KEY = "mintRhythmTimingOffset_v1";
 
 const DEFAULT_SAVE = {
   version: 3,
@@ -33,7 +35,7 @@ const DEFAULT_SAVE = {
   derbyRecent: null
 };
 
-const DEFAULT_GENERAL_SETTINGS = { ssr: 3, sr: 17, r: 80, exchangePt: 100 };
+const DEFAULT_GENERAL_SETTINGS = { ssr: 3, sr: 17, r: 80, exchangePt: 100, defaultHomeCharacterId: null };
 const DEFAULT_LIMITED_SETTINGS = { pickup: 3, ssr: 3, sr: 17, r: 77, exchangeLpt: 100 };
 const ATTENDANCE_REWARDS = [400, 600, 800, 1000, 1300, 1600, 2500];
 
@@ -52,6 +54,8 @@ let generalSettings = { ...DEFAULT_GENERAL_SETTINGS };
 let limitedSettings = { ...DEFAULT_LIMITED_SETTINGS };
 let currentCollectionTab = "SSR";
 let currentAdminFilter = "SSR";
+let adminCharacterDraftOrder = [];
+let adminCharacterOrderDirty = false;
 let isAdmin = false;
 let publicDataLoaded = false;
 let tempHomeSelection = new Set();
@@ -294,6 +298,8 @@ document.querySelectorAll("[data-collection-tab]").forEach((button) => {
 document.querySelectorAll("[data-admin-filter]").forEach((button) => {
   button.addEventListener("click", () => {
     currentAdminFilter = button.dataset.adminFilter;
+    adminCharacterOrderDirty = false;
+    adminCharacterDraftOrder = [];
     document.querySelectorAll("[data-admin-filter]").forEach((b) => b.classList.remove("active"));
     button.classList.add("active");
     renderAdminCharacterList();
@@ -1138,7 +1144,12 @@ function validHomeCharacters() {
 }
 
 function renderHomeCharacter() {
-  const list = validHomeCharacters();
+  const personalList = validHomeCharacters();
+  const fallback = !personalList.length && generalSettings.defaultHomeCharacterId
+    ? characters.find((c) => c.id === generalSettings.defaultHomeCharacterId) || null
+    : null;
+  const list = personalList.length ? personalList : (fallback ? [fallback] : []);
+  const usingPublicFallback = !personalList.length && Boolean(fallback);
   const image = document.getElementById("homeCharacterImage");
   const rarity = document.getElementById("homeCharacterRarity");
   const name = document.getElementById("homeCharacterName");
@@ -1175,7 +1186,9 @@ function renderHomeCharacter() {
   }
   rarity.textContent = char.is_limited ? `LIMITED · ${char.rarity}` : char.rarity;
   name.textContent = char.name;
-  help.textContent = getLimitBreakLevel(char.id) === 3 ? "★★★ FULL · 홈에서 풀돌 전/후 일러를 선택할 수 있어요." : `보유 ${getOwnedCount(char.id)}장`;
+  help.textContent = usingPublicFallback
+    ? "관리자가 지정한 공용 홈 캐릭터예요. 도감에서 캐릭터를 획득하면 개인 홈 캐릭터를 설정할 수 있어요."
+    : (getLimitBreakLevel(char.id) === 3 ? "★★★ FULL · 홈에서 풀돌 전/후 일러를 선택할 수 있어요." : `보유 ${getOwnedCount(char.id)}장`);
   dialogue.textContent = "“캐릭터를 터치하면 대사가 표시됩니다.”";
 }
 
@@ -1371,6 +1384,11 @@ function renderAdmin() {
   document.getElementById("adminNormalSR").value = generalSettings.sr;
   document.getElementById("adminNormalR").value = generalSettings.r;
   document.getElementById("adminNormalExchange").value = generalSettings.exchangePt;
+  const defaultHomeSelect = document.getElementById("adminDefaultHomeCharacter");
+  if (defaultHomeSelect) {
+    defaultHomeSelect.innerHTML = `<option value="">지정 안 함</option>` + characters.map((c) => `<option value="${c.id}">${escapeHTML(c.name)} · ${c.is_limited ? "LIMITED / " : ""}${escapeHTML(c.rarity)}</option>`).join("");
+    defaultHomeSelect.value = generalSettings.defaultHomeCharacterId || "";
+  }
   document.getElementById("adminLimitedPickup").value = limitedSettings.pickup;
   document.getElementById("adminLimitedSSR").value = limitedSettings.ssr;
   document.getElementById("adminLimitedSR").value = limitedSettings.sr;
@@ -1387,7 +1405,8 @@ document.getElementById("normalSettingsForm")?.addEventListener("submit", async 
     ssr: Number(document.getElementById("adminNormalSSR").value),
     sr: Number(document.getElementById("adminNormalSR").value),
     r: Number(document.getElementById("adminNormalR").value),
-    exchangePt: Math.max(1, Math.floor(Number(document.getElementById("adminNormalExchange").value)))
+    exchangePt: Math.max(1, Math.floor(Number(document.getElementById("adminNormalExchange").value))),
+    defaultHomeCharacterId: document.getElementById("adminDefaultHomeCharacter")?.value || null
   };
   if (!ratesEqual100([value.ssr, value.sr, value.r])) return setMessage("normalSettingsMessage", "SSR + SR + R 합계가 정확히 100%여야 해요.", "error");
   try {
@@ -1395,6 +1414,7 @@ document.getElementById("normalSettingsForm")?.addEventListener("submit", async 
     if (error) throw error;
     generalSettings = value;
     renderGacha();
+    renderHomeCharacter();
     setMessage("normalSettingsMessage", "일반 가챠 설정을 저장했어요.", "success");
   } catch (error) {
     setMessage("normalSettingsMessage", error.message || "저장 실패", "error");
@@ -1621,33 +1641,108 @@ async function deleteCharacter(id) {
   }
 }
 
-async function moveCharacter(id, direction) {
-  const list = categoryList(currentAdminFilter);
-  const index = list.findIndex((c) => c.id === id);
+function syncAdminCharacterDraftOrder() {
+  const source = categoryList(currentAdminFilter).map((c) => c.id);
+  if (!adminCharacterOrderDirty || adminCharacterDraftOrder.length !== source.length || adminCharacterDraftOrder.some((id) => !source.includes(id))) {
+    adminCharacterDraftOrder = source;
+    adminCharacterOrderDirty = false;
+  }
+}
+
+function draftCharacterList() {
+  syncAdminCharacterDraftOrder();
+  return adminCharacterDraftOrder.map((id) => characters.find((c) => c.id === id)).filter(Boolean);
+}
+
+function moveCharacterDraft(id, direction) {
+  syncAdminCharacterDraftOrder();
+  const index = adminCharacterDraftOrder.indexOf(id);
   const nextIndex = index + direction;
-  if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return;
-  [list[index], list[nextIndex]] = [list[nextIndex], list[index]];
+  if (index < 0 || nextIndex < 0 || nextIndex >= adminCharacterDraftOrder.length) return;
+  [adminCharacterDraftOrder[index], adminCharacterDraftOrder[nextIndex]] = [adminCharacterDraftOrder[nextIndex], adminCharacterDraftOrder[index]];
+  adminCharacterOrderDirty = true;
+  renderAdminCharacterList();
+}
+
+async function saveCharacterOrderV8() {
+  if (!isAdmin || !adminCharacterOrderDirty) {
+    if (!adminCharacterOrderDirty) setMessage("characterFormMessage", "바뀐 표시 순서가 없어요.", "success");
+    return;
+  }
+  const button = document.getElementById("saveCharacterOrderButton");
+  if (button) { button.disabled = true; button.textContent = "저장 중..."; }
   try {
-    for (let i = 0; i < list.length; i++) {
-      const { error } = await supabaseClient.from("characters").update({ sort_order: i }).eq("id", list[i].id);
+    for (let i = 0; i < adminCharacterDraftOrder.length; i++) {
+      const { error } = await supabaseClient.from("characters").update({ sort_order: i }).eq("id", adminCharacterDraftOrder[i]);
       if (error) throw error;
     }
+    adminCharacterOrderDirty = false;
     await loadPublicData();
+    setMessage("characterFormMessage", `${currentAdminFilter} 표시 순서를 저장했어요.`, "success");
   } catch (error) {
     alert(`순서 저장 실패: ${error.message || error}`);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "순서 저장"; }
   }
+}
+
+document.getElementById("saveCharacterOrderButton")?.addEventListener("click", () => void saveCharacterOrderV8());
+
+function setupLongPressCharacterSort(listEl) {
+  let timer = null;
+  let dragged = null;
+  let activePointer = null;
+
+  const finish = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (!dragged) return;
+    dragged.classList.remove("sort-dragging");
+    adminCharacterDraftOrder = [...listEl.querySelectorAll(".admin-character-row")].map((row) => row.dataset.characterId).filter(Boolean);
+    adminCharacterOrderDirty = true;
+    dragged = null;
+    activePointer = null;
+  };
+
+  listEl.querySelectorAll(".character-drag-handle").forEach((handle) => {
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      activePointer = event.pointerId;
+      const row = handle.closest(".admin-character-row");
+      timer = setTimeout(() => {
+        dragged = row;
+        row?.classList.add("sort-dragging");
+        try { handle.setPointerCapture(activePointer); } catch {}
+      }, 260);
+    });
+
+    handle.addEventListener("pointermove", (event) => {
+      if (!dragged || event.pointerId !== activePointer) return;
+      event.preventDefault();
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".admin-character-row");
+      if (!target || target === dragged || target.parentElement !== listEl) return;
+      const box = target.getBoundingClientRect();
+      if (event.clientY < box.top + box.height / 2) listEl.insertBefore(dragged, target);
+      else listEl.insertBefore(dragged, target.nextSibling);
+    });
+
+    handle.addEventListener("pointerup", finish);
+    handle.addEventListener("pointercancel", finish);
+    handle.addEventListener("pointerleave", () => { if (!dragged && timer) { clearTimeout(timer); timer = null; } });
+  });
 }
 
 function renderAdminCharacterList() {
   const listEl = document.getElementById("adminCharacterList");
   if (!listEl || !isAdmin) return;
-  const list = categoryList(currentAdminFilter);
+  const list = draftCharacterList();
   if (!list.length) {
     listEl.innerHTML = `<div class="card">이 분류에 등록된 캐릭터가 없어요.</div>`;
     return;
   }
   listEl.innerHTML = list.map((char, index) => `
-    <div class="admin-character-row">
+    <div class="admin-character-row" data-character-id="${char.id}">
+      <button type="button" class="character-drag-handle" aria-label="길게 눌러 순서 이동">☰</button>
       <div class="admin-character-thumb">${artHTML(char)}</div>
       <div class="admin-character-info"><strong>${escapeHTML(char.name)}</strong><small>${char.is_limited ? "LIMITED · " : ""}${escapeHTML(char.rarity)} · 순서 ${index + 1}</small></div>
       <div class="admin-character-actions">
@@ -1660,8 +1755,9 @@ function renderAdminCharacterList() {
 
   listEl.querySelectorAll("[data-edit-character]").forEach((button) => button.addEventListener("click", () => startCharacterEdit(button.dataset.editCharacter)));
   listEl.querySelectorAll("[data-delete-character]").forEach((button) => button.addEventListener("click", () => void deleteCharacter(button.dataset.deleteCharacter)));
-  listEl.querySelectorAll("[data-move-up]").forEach((button) => button.addEventListener("click", () => void moveCharacter(button.dataset.moveUp, -1)));
-  listEl.querySelectorAll("[data-move-down]").forEach((button) => button.addEventListener("click", () => void moveCharacter(button.dataset.moveDown, 1)));
+  listEl.querySelectorAll("[data-move-up]").forEach((button) => button.addEventListener("click", () => moveCharacterDraft(button.dataset.moveUp, -1)));
+  listEl.querySelectorAll("[data-move-down]").forEach((button) => button.addEventListener("click", () => moveCharacterDraft(button.dataset.moveDown, 1)));
+  setupLongPressCharacterSort(listEl);
 }
 
 
@@ -3215,9 +3311,18 @@ let rhythmState={
   judgments:{perfect:0,great:0,good:0,miss:0},selectedId:null,difficulty:"NORMAL",lastJudge:"",audioCtx:null
 };
 
+function rhythmLocalNumber(key, fallback, min, max){
+  const raw=Number(localStorage.getItem(key));
+  return Number.isFinite(raw)?Math.max(min,Math.min(max,raw)):fallback;
+}
+function getRhythmFallSpeed(){return rhythmLocalNumber(RHYTHM_SPEED_KEY,Number(saveData.gameRecords.rhythm?.fallSpeed||1),.5,8);}
+function getRhythmTimingOffset(){return rhythmLocalNumber(RHYTHM_OFFSET_KEY,Number(saveData.gameRecords.rhythm?.timingOffset||0),-200,200);}
+function setRhythmFallSpeed(value){localStorage.setItem(RHYTHM_SPEED_KEY,String(Math.max(.5,Math.min(8,Number(value)||1))));}
+function setRhythmTimingOffset(value){localStorage.setItem(RHYTHM_OFFSET_KEY,String(Math.max(-200,Math.min(200,Math.round(Number(value)||0)))));}
+
 function renderRhythmStatus(){
   const rec=saveData.gameRecords.rhythm||{};
-  const speed=Number(rec.fallSpeed||1),offset=Number(rec.timingOffset||0);
+  const speed=getRhythmFallSpeed(),offset=getRhythmTimingOffset();
   const speedInput=document.getElementById("rhythmSpeedInput"),offsetInput=document.getElementById("rhythmOffsetInput");
   if(speedInput&&!rhythmState.active)speedInput.value=speed;
   if(offsetInput&&!rhythmState.active)offsetInput.value=offset;
@@ -3232,13 +3337,13 @@ document.getElementById("rhythmCharacterSelect")?.addEventListener("change",(e)=
   saveData.gameRecords.rhythm.selectedCharacter=e.target.value||null;saveGame();renderRhythmStatus();
 });
 document.getElementById("rhythmSpeedInput")?.addEventListener("input",(e)=>{
-  saveData.gameRecords.rhythm.fallSpeed=Number(e.target.value);saveLocalOnly();renderRhythmStatus();
+  setRhythmFallSpeed(Number(e.target.value));renderRhythmStatus();
 });
 document.getElementById("rhythmOffsetInput")?.addEventListener("input",(e)=>{
-  saveData.gameRecords.rhythm.timingOffset=Number(e.target.value);saveLocalOnly();renderRhythmStatus();
+  setRhythmTimingOffset(Number(e.target.value));renderRhythmStatus();
 });
 document.getElementById("rhythmOffsetResetButton")?.addEventListener("click",()=>{
-  saveData.gameRecords.rhythm.timingOffset=0;document.getElementById("rhythmOffsetInput").value=0;saveGame();renderRhythmStatus();
+  setRhythmTimingOffset(0);document.getElementById("rhythmOffsetInput").value=0;renderRhythmStatus();
 });
 
 function makeRhythmChart(diff){
@@ -3303,7 +3408,7 @@ async function startRhythmGame(){
   rhythmState.raf=requestAnimationFrame(rhythmLoop);
 }
 
-function rhythmTime(){const offset=Number(saveData.gameRecords.rhythm.timingOffset||0);if(rhythmState.audioElement&&!rhythmState.audioElement.paused)return rhythmState.audioElement.currentTime*1000+offset;return performance.now()-rhythmState.startAt+offset;}
+function rhythmTime(){const offset=getRhythmTimingOffset();if(rhythmState.audioElement&&!rhythmState.audioElement.paused)return rhythmState.audioElement.currentTime*1000+offset;return performance.now()-rhythmState.startAt+offset;}
 
 function playRhythmTick(){
   if(rhythmState.audioElement)return;
@@ -3343,7 +3448,7 @@ function rhythmLoop(){
 
 function drawRhythm(now){
   const canvas=document.getElementById("rhythmCanvas"),ctx=canvas?.getContext("2d");if(!ctx)return;
-  const w=canvas.width,h=canvas.height,laneW=w/4,judgeY=h-90,speed=Number(saveData.gameRecords.rhythm.fallSpeed||1);
+  const w=canvas.width,h=canvas.height,laneW=w/4,judgeY=h-90,speed=getRhythmFallSpeed();
   ctx.fillStyle="#10201b";ctx.fillRect(0,0,w,h);
   for(let i=0;i<4;i++){ctx.fillStyle=i%2?"#17332a":"#142b24";ctx.fillRect(i*laneW,0,laneW,h);ctx.strokeStyle="rgba(255,255,255,.07)";ctx.strokeRect(i*laneW,0,laneW,h);}
   ctx.fillStyle="#58d3ad";ctx.fillRect(0,judgeY,w,4);
@@ -3997,11 +4102,25 @@ setTimeout(()=>{void v6CheckAccountAndActions();},2500);
 /* =========================================================
    V6 관리자 유저 관리
 ========================================================= */
-async function loadAdminUsersV6(){if(!isAdmin||!supabaseClient)return;setMessage("adminUserMessage","불러오는 중...");const{data,error}=await supabaseClient.rpc("admin_list_users");if(error){setMessage("adminUserMessage",error.message,"error");return;}adminUsers=Array.isArray(data)?data:[];setMessage("adminUserMessage",`${adminUsers.length}명 불러옴.`,`success`);renderAdminUsersV6();}
+async function loadAdminUsersV6(){
+  if(!isAdmin||!supabaseClient)return;
+  setMessage("adminUserMessage","불러오는 중...");
+  const candidates=["admin_list_users_v4","admin_list_users_v3","admin_list_users_v2","admin_list_users"];
+  let lastError=null,data=null,used="";
+  for(const fn of candidates){
+    const res=await supabaseClient.rpc(fn);
+    if(!res.error){data=res.data;used=fn;lastError=null;break;}
+    lastError=res.error;
+  }
+  if(lastError){setMessage("adminUserMessage",lastError.message,"error");return;}
+  adminUsers=Array.isArray(data)?data:[];
+  setMessage("adminUserMessage",`${adminUsers.length}명 불러옴 · ${used.replace("admin_list_users_", "RPC ").replace("admin_list_users","RPC 기본")}`,"success");
+  renderAdminUsersV6();
+}
 function userTs(v){return v?new Date(v).getTime():0;}
 function renderAdminUsersV6(){const list=document.getElementById("adminUserList");if(!list)return;const q=(document.getElementById("adminUserSearch")?.value||"").trim().toLowerCase(),sort=document.getElementById("adminUserSort")?.value||"created_desc";let rows=adminUsers.filter((u)=>!q||String(u.email||"").toLowerCase().includes(q)||String(u.user_id||"").toLowerCase().includes(q));rows.sort((a,b)=>sort==="created_asc"?userTs(a.created_at)-userTs(b.created_at):sort==="login_desc"?userTs(b.last_sign_in_at)-userTs(a.last_sign_in_at):sort==="points_desc"?Number(b.points||0)-Number(a.points||0):userTs(b.created_at)-userTs(a.created_at));
   document.getElementById("adminStatTotal").textContent=adminUsers.length;document.getElementById("adminStatActive").textContent=adminUsers.filter((u)=>Date.now()-userTs(u.last_sign_in_at)<=7*86400000).length;document.getElementById("adminStatSuspended").textContent=adminUsers.filter((u)=>u.suspended).length;document.getElementById("adminStatNoSave").textContent=adminUsers.filter((u)=>!u.has_save).length;
-  list.innerHTML=rows.length?rows.map((u)=>`<div class="admin-user-row"><div class="admin-user-main"><strong>${escapeHTML(u.email||"이메일 없음")}</strong><small>UID ${escapeHTML(u.user_id)}</small><span class="status-chip ${u.suspended?"suspended":!u.has_save?"nosave":""}">${u.suspended?"이용 정지":!u.has_save?"세이브 없음":"정상"}</span></div><div class="admin-user-meta"><div><small>포인트</small><b>${formatPoints(u.points||0)}P</b></div><div><small>캐릭터 종류</small><b>${u.character_count||0}</b></div><div><small>대기 작업</small><b>${u.pending_actions||0}</b></div><div><small>펫</small><b>${escapeHTML(u.pet_name||"-")}</b></div><small>가입 ${u.created_at?new Date(u.created_at).toLocaleDateString("ko-KR"):"-"}</small><small>최근 로그인 ${u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString("ko-KR"):"-"}</small></div><div class="admin-user-actions"><button data-user-action="pointAdd" data-uid="${u.user_id}">포인트 지급</button><button data-user-action="pointSub" data-uid="${u.user_id}">차감</button><button data-user-action="pointSet" data-uid="${u.user_id}">잔액 설정</button><button data-user-action="charGrant" data-uid="${u.user_id}">캐릭터 지급</button><button class="warn" data-user-action="reset" data-uid="${u.user_id}">세이브 초기화</button><button class="${u.suspended?"":"warn"}" data-user-action="suspend" data-uid="${u.user_id}">${u.suspended?"정지 해제":"이용 정지"}</button><button class="danger" data-user-action="delete" data-uid="${u.user_id}">계정 삭제</button></div></div>`).join(""):`<div class="card">조건에 맞는 유저가 없어요.</div>`;
+  list.innerHTML=rows.length?rows.map((u)=>`<div class="admin-user-row"><div class="admin-user-main"><strong>${escapeHTML(u.email||"이메일 없음")}</strong><small>UID ${escapeHTML(u.user_id)}</small><span class="status-chip ${u.suspended?"suspended":!u.has_save?"nosave":""}">${u.suspended?"이용 정지":!u.has_save?"세이브 없음":"정상"}</span></div><div class="admin-user-meta"><div><small>포인트</small><b>${formatPoints(u.points||0)}P</b></div><div><small>캐릭터 종류</small><b>${u.character_count||0}</b></div><div><small>대기 작업</small><b>${u.pending_actions||0}</b></div><div><small>대기 포인트</small><b>${formatPoints(u.pending_points||0)}P</b></div><div><small>펫</small><b>${escapeHTML(u.pet_name||"-")}</b></div><span class="meta-badge ${u.email_confirmed?"ok":"warn"}">${u.email_confirmed?"이메일 인증 완료":"이메일 미인증"}</span><small>가입 ${u.created_at?new Date(u.created_at).toLocaleDateString("ko-KR"):"-"}</small><small>최근 로그인 ${u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString("ko-KR"):"-"}</small><small>마지막 클라우드 저장 ${u.last_save_at?new Date(u.last_save_at).toLocaleString("ko-KR"):"-"}</small></div><div class="admin-user-actions"><button data-user-action="pointAdd" data-uid="${u.user_id}">포인트 지급</button><button data-user-action="pointSub" data-uid="${u.user_id}">차감</button><button data-user-action="pointSet" data-uid="${u.user_id}">잔액 설정</button><button data-user-action="charGrant" data-uid="${u.user_id}">캐릭터 지급</button><button class="warn" data-user-action="reset" data-uid="${u.user_id}">세이브 초기화</button><button class="${u.suspended?"":"warn"}" data-user-action="suspend" data-uid="${u.user_id}">${u.suspended?"정지 해제":"이용 정지"}</button><button class="danger" data-user-action="delete" data-uid="${u.user_id}">계정 삭제</button></div></div>`).join(""):`<div class="card">조건에 맞는 유저가 없어요.</div>`;
   list.querySelectorAll("[data-user-action]").forEach((button)=>button.addEventListener("click",()=>handleAdminUserActionV6(button.dataset.uid,button.dataset.userAction)));
 }
 async function queueAdminActionV6(uid,kind,payload){const{error}=await supabaseClient.rpc("admin_queue_action",{target_user:uid,kind,data:payload});if(error)throw error;await loadAdminUsersV6();}
@@ -4023,9 +4142,56 @@ async function deleteStorageUrlV6(bucket,url){if(!url)return;try{const marker=`/
 /* =========================================================
    V6 배너 관리자
 ========================================================= */
-function resetBannerFormV6(){document.getElementById("bannerForm")?.reset();document.getElementById("bannerEditId").value="";document.getElementById("bannerFontSizeInput").value=32;document.getElementById("bannerXInput").value=25;document.getElementById("bannerYInput").value=50;document.getElementById("bannerColorInput").value="#35c597";document.getElementById("bannerEnabledInput").checked=true;document.getElementById("cancelBannerEditButton")?.classList.add("hidden");setMessage("bannerFormMessage","");}
+let bannerPreviewObjectUrlV8=null;
+let bannerPreviewFontUrlV8=null;
+let bannerPreviewFontNameV8="";
+
+function updateBannerEditorPreviewV8(){
+  const preview=document.getElementById("bannerEditorPreview"),text=document.getElementById("bannerEditorPreviewText");
+  if(!preview||!text)return;
+  const x=Math.max(0,Math.min(100,Number(document.getElementById("bannerXInput")?.value)||0));
+  const y=Math.max(0,Math.min(100,Number(document.getElementById("bannerYInput")?.value)||0));
+  const size=Math.max(16,Math.min(80,Number(document.getElementById("bannerFontSizeInput")?.value)||32));
+  const color=document.getElementById("bannerColorInput")?.value||"#35c597";
+  text.textContent=document.getElementById("bannerTextInput")?.value.trim()||"이벤트 문구";
+  text.style.left=`${x}%`;text.style.top=`${y}%`;text.style.fontSize=`${size}px`;text.style.color=color;text.style.textShadow=`0 0 12px ${color}66`;
+  text.style.fontFamily=bannerPreviewFontNameV8?`'${bannerPreviewFontNameV8}', sans-serif`:"";
+  const img=document.getElementById("bannerImageInput")?.files?.[0];
+  const editId=document.getElementById("bannerEditId")?.value;
+  const existing=eventBanners.find((b)=>b.id===editId);
+  if(img){
+    if(bannerPreviewObjectUrlV8)URL.revokeObjectURL(bannerPreviewObjectUrlV8);
+    bannerPreviewObjectUrlV8=URL.createObjectURL(img);
+    preview.style.backgroundImage=`url('${bannerPreviewObjectUrlV8}')`;
+  }else preview.style.backgroundImage=existing?.image_url?`url('${existing.image_url}')`:"linear-gradient(135deg,#d8fff2,#ffffff)";
+}
+
+async function loadBannerPreviewFontV8(file){
+  bannerPreviewFontNameV8="";
+  if(!file){updateBannerEditorPreviewV8();return;}
+  try{
+    if(bannerPreviewFontUrlV8)URL.revokeObjectURL(bannerPreviewFontUrlV8);
+    bannerPreviewFontUrlV8=URL.createObjectURL(file);
+    bannerPreviewFontNameV8=`MintPreview_${safeUUID().replaceAll("-","")}`;
+    const face=new FontFace(bannerPreviewFontNameV8,`url(${bannerPreviewFontUrlV8})`);
+    await face.load();document.fonts.add(face);updateBannerEditorPreviewV8();
+  }catch(error){console.warn("폰트 미리보기 실패",error);bannerPreviewFontNameV8="";updateBannerEditorPreviewV8();}
+}
+
+["bannerTextInput","bannerFontSizeInput","bannerXInput","bannerYInput","bannerColorInput"].forEach((id)=>document.getElementById(id)?.addEventListener("input",updateBannerEditorPreviewV8));
+document.getElementById("bannerImageInput")?.addEventListener("change",updateBannerEditorPreviewV8);
+document.getElementById("bannerFontInput")?.addEventListener("change",(e)=>void loadBannerPreviewFontV8(e.target.files?.[0]||null));
+document.getElementById("bannerEditorPreview")?.addEventListener("click",(e)=>{
+  const rect=e.currentTarget.getBoundingClientRect();
+  const x=Math.round(((e.clientX-rect.left)/rect.width)*100),y=Math.round(((e.clientY-rect.top)/rect.height)*100);
+  document.getElementById("bannerXInput").value=Math.max(0,Math.min(100,x));
+  document.getElementById("bannerYInput").value=Math.max(0,Math.min(100,y));
+  updateBannerEditorPreviewV8();
+});
+
+function resetBannerFormV6(){document.getElementById("bannerForm")?.reset();document.getElementById("bannerEditId").value="";document.getElementById("bannerFontSizeInput").value=32;document.getElementById("bannerXInput").value=25;document.getElementById("bannerYInput").value=50;document.getElementById("bannerColorInput").value="#35c597";document.getElementById("bannerEnabledInput").checked=true;document.getElementById("cancelBannerEditButton")?.classList.add("hidden");setMessage("bannerFormMessage","");bannerPreviewFontNameV8="";updateBannerEditorPreviewV8();}
 function renderAdminBannerListV6(){const el=document.getElementById("adminBannerList");if(!el||!isAdmin)return;el.innerHTML=eventBanners.length?eventBanners.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map((b)=>`<div class="ops-list-row"><div class="ops-list-thumb">${b.image_url?`<img src="${escapeHTML(b.image_url)}">`:"BANNER"}</div><div class="ops-list-info"><strong>${escapeHTML(b.text||"문구 없음")}</strong><small>${b.enabled?"표시 중":"숨김"} · ${b.font_size}px · 위치 ${b.x_pct},${b.y_pct} · 순서 ${b.sort_order}</small></div><div class="ops-list-actions"><button data-banner-edit="${b.id}">수정</button><button class="danger" data-banner-delete="${b.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 배너가 없어요.</div>`;el.querySelectorAll("[data-banner-edit]").forEach((button)=>button.addEventListener("click",()=>editBannerV6(button.dataset.bannerEdit)));el.querySelectorAll("[data-banner-delete]").forEach((button)=>button.addEventListener("click",()=>void deleteBannerV6(button.dataset.bannerDelete)));}
-function editBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b)return;document.getElementById("bannerEditId").value=b.id;document.getElementById("bannerTextInput").value=b.text||"";document.getElementById("bannerFontSizeInput").value=b.font_size||32;document.getElementById("bannerXInput").value=b.x_pct??25;document.getElementById("bannerYInput").value=b.y_pct??50;document.getElementById("bannerColorInput").value=b.neon_color||"#35c597";document.getElementById("bannerSortInput").value=b.sort_order||0;document.getElementById("bannerPulseInput").checked=Boolean(b.pulse);document.getElementById("bannerEnabledInput").checked=Boolean(b.enabled);document.getElementById("cancelBannerEditButton")?.classList.remove("hidden");document.getElementById("bannerForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
+function editBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b)return;document.getElementById("bannerEditId").value=b.id;document.getElementById("bannerTextInput").value=b.text||"";document.getElementById("bannerFontSizeInput").value=b.font_size||32;document.getElementById("bannerXInput").value=b.x_pct??25;document.getElementById("bannerYInput").value=b.y_pct??50;document.getElementById("bannerColorInput").value=b.neon_color||"#35c597";document.getElementById("bannerSortInput").value=b.sort_order||0;document.getElementById("bannerPulseInput").checked=Boolean(b.pulse);document.getElementById("bannerEnabledInput").checked=Boolean(b.enabled);document.getElementById("cancelBannerEditButton")?.classList.remove("hidden");updateBannerEditorPreviewV8();document.getElementById("bannerForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
 async function deleteBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b||!confirm("이 배너를 삭제할까요?"))return;const{error}=await supabaseClient.from("event_banners").delete().eq("id",id);if(error)return alert(error.message);await Promise.all([deleteStorageUrlV6("banner-assets",b.image_url),deleteStorageUrlV6("banner-assets",b.font_url)]);await loadV6PublicData();renderAdminBannerListV6();}
 document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;const id=document.getElementById("bannerEditId").value,existing=eventBanners.find((b)=>b.id===id);const imageFile=document.getElementById("bannerImageInput").files?.[0],fontFile=document.getElementById("bannerFontInput").files?.[0];if(imageFile&&imageFile.size>10*1024*1024)return setMessage("bannerFormMessage","이미지는 10MB 이하만 가능해요.","error");if(fontFile&&fontFile.size>10*1024*1024)return setMessage("bannerFormMessage","폰트는 10MB 이하만 가능해요.","error");try{setMessage("bannerFormMessage","업로드/저장 중...");const imageUrl=imageFile?await uploadPublicFileV6("banner-assets",imageFile,"images"):existing?.image_url||null;const fontUrl=fontFile?await uploadPublicFileV6("banner-assets",fontFile,"fonts"):existing?.font_url||null;const fontFamily=fontFile?`MintBanner_${safeUUID().replaceAll("-","")}`:existing?.font_family||null;const payload={text:document.getElementById("bannerTextInput").value.trim(),font_size:Number(document.getElementById("bannerFontSizeInput").value)||32,x_pct:Number(document.getElementById("bannerXInput").value)||0,y_pct:Number(document.getElementById("bannerYInput").value)||0,neon_color:document.getElementById("bannerColorInput").value,pulse:document.getElementById("bannerPulseInput").checked,enabled:document.getElementById("bannerEnabledInput").checked,sort_order:Math.floor(Number(document.getElementById("bannerSortInput").value)||0),image_url:imageUrl,font_url:fontUrl,font_family:fontFamily};const res=id?await supabaseClient.from("event_banners").update(payload).eq("id",id):await supabaseClient.from("event_banners").insert(payload);if(res.error)throw res.error;if(existing&&imageFile)await deleteStorageUrlV6("banner-assets",existing.image_url);if(existing&&fontFile)await deleteStorageUrlV6("banner-assets",existing.font_url);resetBannerFormV6();await loadV6PublicData();renderAdminBannerListV6();setMessage("bannerFormMessage","저장 완료!","success");}catch(error){setMessage("bannerFormMessage",error.message,"error");}});document.getElementById("resetBannerFormButton")?.addEventListener("click",resetBannerFormV6);document.getElementById("cancelBannerEditButton")?.addEventListener("click",resetBannerFormV6);
 
@@ -4081,6 +4247,21 @@ function resetPetTypeFormV6(){document.getElementById("petTypeForm")?.reset();do
 function renderAdminPetTypesV6(){const el=document.getElementById("adminPetTypeList");if(!el||!isAdmin)return;el.innerHTML=petTypes.length?petTypes.map((p)=>`<div class="ops-list-row"><div class="ops-list-thumb">${p.images?.egg_base?`<img src="${escapeHTML(p.images.egg_base)}">`:"🥚"}</div><div class="ops-list-info"><strong>${escapeHTML(p.name)}</strong><small>${p.is_public?"공개":"비공개"} · 순서 ${p.sort_order||0}</small></div><div class="ops-list-actions"><button data-pet-edit="${p.id}">수정</button><button class="danger" data-pet-delete="${p.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 펫이 없어요.</div>`;el.querySelectorAll("[data-pet-edit]").forEach((b)=>b.addEventListener("click",()=>editPetTypeV6(b.dataset.petEdit)));el.querySelectorAll("[data-pet-delete]").forEach((b)=>b.addEventListener("click",()=>void deletePetTypeV6(b.dataset.petDelete)));}
 function editPetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p)return;document.getElementById("petTypeEditId").value=p.id;document.getElementById("petTypeNameInput").value=p.name||"";document.getElementById("petTypeDescriptionInput").value=p.description||"";document.getElementById("petTypeSortInput").value=p.sort_order||0;document.getElementById("petTypePublicInput").checked=Boolean(p.is_public);petDialogueDrafts=deepClone(p.dialogues||{});petGiftItemDialogueDrafts=deepClone(p.dialogues?.gift_items||{});delete petDialogueDrafts.gift_items;loadPetDialogueTextareaV6();renderPetGiftItemAdminV7();document.getElementById("cancelPetTypeEditButton")?.classList.remove("hidden");document.getElementById("petTypeForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
 async function deletePetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p||!confirm("이 펫 종류를 삭제할까요? 기존 사용자의 해당 펫이 정상 표시되지 않을 수 있어요."))return;const{error}=await supabaseClient.from("pet_types").delete().eq("id",id);if(error)return alert(error.message);await Promise.all(Object.values(p.images||{}).map((url)=>deleteStorageUrlV6("pet-assets",url)));await loadV6PublicData();renderAdminPetTypesV6();}
+function setupPetImageDropsV8(){
+  document.querySelectorAll("[data-pet-image-key]").forEach((input)=>{
+    const label=input.closest("label");if(!label)return;
+    label.classList.add("pet-image-drop");
+    let preview=label.querySelector(".pet-image-mini-preview");
+    if(!preview){preview=document.createElement("div");preview.className="pet-image-mini-preview";preview.textContent="미리보기";label.appendChild(preview);}
+    const refresh=()=>{const file=input.files?.[0];if(!file){preview.textContent="미리보기";return;}const url=URL.createObjectURL(file);preview.innerHTML=`<img src="${url}" alt="미리보기">`;};
+    input.addEventListener("change",refresh);
+    ["dragenter","dragover"].forEach((name)=>label.addEventListener(name,(e)=>{e.preventDefault();label.classList.add("drag-over");}));
+    ["dragleave","drop"].forEach((name)=>label.addEventListener(name,(e)=>{e.preventDefault();label.classList.remove("drag-over");}));
+    label.addEventListener("drop",(e)=>{const file=e.dataTransfer?.files?.[0];if(!file)return;if(!["image/png","image/jpeg","image/webp","image/gif"].includes(file.type))return alert("PNG/JPG/WEBP/GIF 이미지만 가능해요.");const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event("change"));});
+  });
+}
+setupPetImageDropsV8();
+
 document.getElementById("petTypeForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;commitPetDialogueDraftV6();const id=document.getElementById("petTypeEditId").value,existing=petTypes.find((p)=>p.id===id);try{setMessage("petTypeMessage","이미지 업로드/저장 중...");const images={...(existing?.images||{})};for(const input of document.querySelectorAll("[data-pet-image-key]")){const file=input.files?.[0];if(!file)continue;if(file.size>10*1024*1024)throw new Error("펫 이미지는 각 10MB 이하만 가능해요.");const key=input.dataset.petImageKey,newUrl=await uploadPublicFileV6("pet-assets",file,`pets/${id||"new"}`);if(images[key])await deleteStorageUrlV6("pet-assets",images[key]);images[key]=newUrl;}if(!existing&&(!images.egg_base||!images.baby_base||!images.child_base||!images.adult_base))throw new Error("새 펫은 알/아기/어린이/성인 기본 이미지 4장이 필수예요.");const payload={name:document.getElementById("petTypeNameInput").value.trim(),description:document.getElementById("petTypeDescriptionInput").value.trim(),is_public:document.getElementById("petTypePublicInput").checked,sort_order:Math.floor(Number(document.getElementById("petTypeSortInput").value)||0),images,dialogues:{...petDialogueDrafts,gift_items:petGiftItemDialogueDrafts}};const res=id?await supabaseClient.from("pet_types").update(payload).eq("id",id):await supabaseClient.from("pet_types").insert(payload);if(res.error)throw res.error;resetPetTypeFormV6();await loadV6PublicData();renderAdminPetTypesV6();setMessage("petTypeMessage","펫 저장 완료!","success");}catch(error){setMessage("petTypeMessage",error.message,"error");}});document.getElementById("resetPetTypeFormButton")?.addEventListener("click",resetPetTypeFormV6);document.getElementById("cancelPetTypeEditButton")?.addEventListener("click",resetPetTypeFormV6);
 
 function renderV6AdminPanels(){if(!isAdmin)return;renderPetGiftItemAdminV7();const bm=document.getElementById("bannerMasterInput");if(bm)bm.checked=bannerMasterEnabledV6;renderAdminBannerListV6();renderAdminRhythmSongsV6();renderAdminPetTypesV6();if(!adminUsers.length)void loadAdminUsersV6();}

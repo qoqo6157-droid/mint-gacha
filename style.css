@@ -1161,3 +1161,145 @@ body.game-shake { animation: gameShake .24s linear; }
     height: 46px;
   }
 }
+
+
+/* =========================================================
+   V8 최종 검수 보강
+========================================================= */
+.admin-sort-help {
+  margin: -8px 0 14px;
+  color: #81968f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.admin-character-row {
+  touch-action: pan-y;
+}
+
+.admin-character-row.sort-dragging {
+  opacity: .72;
+  outline: 2px solid #6ad5b3;
+  background: #effff9;
+}
+
+.character-drag-handle {
+  cursor: grab !important;
+  user-select: none;
+  touch-action: none;
+  font-size: 16px;
+}
+
+.character-drag-handle:active { cursor: grabbing !important; }
+
+.banner-editor-preview {
+  position: relative;
+  min-height: 210px;
+  margin: 14px 0;
+  overflow: hidden;
+  border: 1px solid #cfece2;
+  border-radius: 18px;
+  background: linear-gradient(135deg,#d8fff2,#ffffff);
+  background-size: cover;
+  background-position: center;
+  cursor: crosshair;
+}
+
+.banner-editor-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.25));
+}
+
+.banner-editor-preview-text {
+  position: absolute;
+  left: 25%;
+  top: 50%;
+  z-index: 2;
+  transform: translate(-50%,-50%);
+  max-width: 80%;
+  color: #35c597;
+  font-size: 32px;
+  font-weight: 1000;
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(53,197,151,.35);
+  pointer-events: none;
+}
+
+.banner-editor-preview > small {
+  position: absolute;
+  z-index: 3;
+  left: 10px;
+  bottom: 8px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.82);
+  color: #6c877e;
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.pet-image-drop {
+  position: relative;
+  min-height: 92px;
+  padding: 10px !important;
+  border: 1px dashed #cfe9df !important;
+  border-radius: 13px;
+  background: #fbfffd;
+  transition: .15s;
+}
+
+.pet-image-drop.drag-over {
+  border-color: #38c799 !important;
+  background: #eafff7;
+}
+
+.pet-image-mini-preview {
+  width: 54px;
+  height: 54px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #edf9f5;
+  display: grid;
+  place-items: center;
+  color: #85a096;
+  font-size: 9px;
+}
+
+.pet-image-mini-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-user-meta .meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #edf9f5;
+  color: #648178;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.admin-user-meta .meta-badge.ok {
+  background: #e4fff5;
+  color: #27a67e;
+}
+
+.admin-user-meta .meta-badge.warn {
+  background: #fff4df;
+  color: #b07b28;
+}
+
+@media (max-width: 600px) {
+  .banner-editor-preview { min-height: 170px; }
+  .banner-editor-preview-text { max-width: 88%; }
+}
