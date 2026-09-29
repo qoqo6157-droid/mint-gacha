@@ -1,0 +1,150 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #180e12;
+  color: #ffffff;
+}
+
+
+/* 상단 메뉴 */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  display: flex;
+  align-items: center;
+  gap: 20px;
+
+  padding: 15px 25px;
+
+  background: #28151c;
+  border-bottom: 1px solid #57303d;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 22px;
+  white-space: nowrap;
+}
+
+
+/* 메뉴 */
+
+nav {
+  display: flex;
+  flex: 1;
+  gap: 7px;
+  overflow-x: auto;
+}
+
+nav button {
+  border: 0;
+  border-radius: 10px;
+
+  padding: 10px 14px;
+
+  background: #46242f;
+  color: white;
+
+  font-weight: bold;
+
+  cursor: pointer;
+}
+
+nav button:hover {
+  background: #c84f6c;
+}
+
+
+/* 포인트 */
+
+header p {
+  margin: 0;
+
+  padding: 9px 14px;
+
+  border-radius: 20px;
+
+  background: #13090d;
+
+  font-weight: bold;
+
+  white-space: nowrap;
+}
+
+
+/* 메인 */
+
+main {
+  width: min(1100px, calc(100% - 30px));
+
+  margin: 0 auto;
+
+  padding: 35px 0;
+}
+
+main h2 {
+  font-size: 30px;
+
+  margin-top: 0;
+}
+
+
+/* 기본 박스 */
+
+.card {
+  padding: 25px;
+
+  margin-bottom: 18px;
+
+  min-height: 130px;
+
+  border-radius: 18px;
+
+  border: 1px solid #58303c;
+
+  background: #29171d;
+}
+
+
+/* 모바일 */
+
+@media (max-width: 750px) {
+
+  header {
+    display: grid;
+
+    grid-template-columns: 1fr auto;
+
+    padding: 10px;
+  }
+
+  nav {
+    grid-column: 1 / -1;
+  }
+
+  nav button {
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+  }
+
+  main {
+    width: calc(100% - 20px);
+  }
+
+} 
