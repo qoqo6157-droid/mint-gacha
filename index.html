@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <header>
@@ -1045,8 +1045,93 @@
     </div>
   </div>
 
-  <!-- 가챠 연출 레이어: 팝업이 아니라 화면 위 이펙트만 잠깐 재생 -->
+  <!-- 전용 가챠 연출 화면 -->
+  <div class="gacha-sequence-overlay hidden" id="gachaSequenceOverlay" aria-hidden="true">
+    <button class="gacha-sequence-skip" id="gachaSequenceSkip" type="button">SKIP</button>
+
+    <div class="gacha-sequence-bg">
+      <div class="gacha-sequence-haze haze-a"></div>
+      <div class="gacha-sequence-haze haze-b"></div>
+      <div class="gacha-sequence-stars" id="gachaSequenceStars"></div>
+    </div>
+
+    <div class="gacha-sequence-content">
+      <div class="gacha-sequence-label" id="gachaSequenceLabel">SUMMON</div>
+      <h2 class="gacha-sequence-title" id="gachaSequenceTitle">문을 열어주세요</h2>
+      <p class="gacha-sequence-subtitle" id="gachaSequenceSubtitle">화면을 터치하면 연출이 진행돼요.</p>
+
+      <div class="gacha-door-stage" id="gachaDoorStage">
+        <div class="gacha-door-light"></div>
+        <div class="gacha-door" id="gachaDoor">
+          <div class="gacha-door-panel left">
+            <div class="gacha-door-glass"></div>
+            <span class="gacha-door-handle"></span>
+          </div>
+          <div class="gacha-door-panel right">
+            <div class="gacha-door-glass"></div>
+            <span class="gacha-door-handle"></span>
+          </div>
+          <div class="gacha-door-mark" id="gachaDoorMark">✦</div>
+          <div class="gacha-door-grade" id="gachaDoorGrade"></div>
+        </div>
+      </div>
+
+      <div class="gacha-promotion-banner hidden" id="gachaPromotionBanner">
+        <span>UPGRADE</span>
+        <strong id="gachaPromotionText">SSR 승격!</strong>
+      </div>
+
+      <div class="gacha-orb-field hidden" id="gachaOrbField"></div>
+
+      <div class="gacha-sequence-touch" id="gachaSequenceTouch">
+        <span class="touch-ring"></span>
+        <strong id="gachaSequenceTouchText">TOUCH</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- 최종 결과 카드 이펙트 레이어 -->
   <div class="gacha-fx-layer" id="gachaFxLayer" aria-hidden="true"></div>
+
+  <!-- 도감 캐릭터 상세 카드 -->
+  <div class="modal-backdrop hidden" id="collectionDetailModal">
+    <div class="collection-detail-modal">
+      <button class="modal-close" type="button" id="closeCollectionDetailModal">×</button>
+
+      <div class="collection-detail-card" id="collectionDetailCard">
+        <div class="collection-detail-art-wrap">
+          <div class="collection-detail-art" id="collectionDetailArt">
+            <img class="hidden" id="collectionDetailImage" alt="">
+            <div class="collection-detail-fallback" id="collectionDetailFallback">CHARACTER</div>
+          </div>
+          <div class="collection-detail-rarity" id="collectionDetailRarity">SSR</div>
+          <div class="collection-detail-full-badge hidden" id="collectionDetailFullBadge">FULL</div>
+        </div>
+
+        <div class="collection-detail-info">
+          <p class="section-label">COLLECTION CARD</p>
+          <h2 id="collectionDetailName">캐릭터</h2>
+          <div class="collection-detail-counts" id="collectionDetailCounts"></div>
+
+          <div class="collection-detail-limit hidden" id="collectionDetailLimit">
+            <div class="collection-detail-stars" id="collectionDetailStars">☆☆☆</div>
+            <p id="collectionDetailLimitMeta">강화 0/3</p>
+            <button class="mint-button full-width-button" id="collectionDetailLimitButton" type="button">한계돌파</button>
+          </div>
+
+          <div class="collection-detail-actions" id="collectionDetailActions">
+            <button class="white-button" id="collectionDetailHomeButton" type="button">홈 후보로 설정</button>
+            <button class="white-button" id="collectionDetailHomeSettingsButton" type="button">홈 설정 전체보기</button>
+          </div>
+
+          <div class="collection-detail-locked hidden" id="collectionDetailLocked">
+            <span>🔒</span>
+            <strong>아직 획득하지 않은 캐릭터예요.</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 한계돌파 모달 -->
   <div class="modal-backdrop hidden" id="limitBreakModal">
@@ -1113,6 +1198,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=13"></script>
+  <script src="script.js?v=14"></script>
 </body>
 </html>

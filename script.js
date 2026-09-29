@@ -61,6 +61,19 @@ let isAdmin = false;
 let publicDataLoaded = false;
 let tempHomeSelection = new Set();
 
+let gachaSequence = {
+  active: false,
+  stage: 0,
+  type: null,
+  results: [],
+  actualTier: "r",
+  doorTier: "r",
+  fakeout: false,
+  inputLocked: false
+};
+
+let collectionDetailCharacterId = null;
+
 // V6 public/operation data
 let eventBanners = [];
 let rhythmSongs = [];
@@ -723,10 +736,15 @@ window.addEventListener("pagehide", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (gachaSequence.active) {
+    finishGachaSequence(true);
+    return;
+  }
   closeAuthModal();
   closeGachaResultModal();
   closeLimitBreakModal();
   closeExchangeSuccessModal();
+  closeCollectionDetail();
   closeHomeCharacterModal();
 });
 
@@ -846,6 +864,8 @@ function recoverPendingGacha() {
 }
 
 function performGacha(type, count) {
+  if (gachaSequence.active) return;
+
   const limited = type === "limited";
   syncLimitedEventId();
   const validation = limited ? validateLimitedGacha() : validateNormalGacha();
@@ -875,13 +895,12 @@ function performGacha(type, count) {
   saveData.pendingGacha.status = "applied";
   saveData.pendingGacha.results = results;
   saveGame();
+
   updatePointDisplays();
-  renderGacha();
   renderCollection();
-  showGachaResults(type, results);
-  saveData.pendingGacha = null;
-  saveGame();
-  setMessage(messageId, `${count}회 뽑기가 완료됐어요.`, "success");
+  startGachaSequence(type, results);
+  renderGacha();
+  setMessage(messageId, "가챠 연출 진행 중 · 화면을 터치해주세요.", "");
 }
 
 document.getElementById("normalDraw1Button")?.addEventListener("click", () => performGacha("normal", 1));
@@ -898,6 +917,226 @@ function gachaResultTier(results) {
   if (pulled.some((char) => char.rarity === "SR")) return "sr";
   return "r";
 }
+
+function gachaDoorLabel(tier) {
+  if (tier === "limited") return "✦ LIMITED ✦";
+  if (tier === "ssr") return "SSR GUARANTEED";
+  if (tier === "sr") return "SR OR HIGHER";
+  return "";
+}
+
+function gachaTierKorean(tier) {
+  if (tier === "limited") return "한정 SSR";
+  if (tier === "ssr") return "SSR";
+  if (tier === "sr") return "SR";
+  return "R";
+}
+
+function gachaResultCharacter(result) {
+  return characters.find((char) => char.id === result?.id) || null;
+}
+
+function gachaOrbTier(result) {
+  const char = gachaResultCharacter(result);
+  if (!char) return "r";
+  if (char.is_limited) return "limited";
+  if (char.rarity === "SSR") return "ssr";
+  if (char.rarity === "SR") return "sr";
+  return "r";
+}
+
+function buildGachaSequenceStars() {
+  const holder = document.getElementById("gachaSequenceStars");
+  if (!holder) return;
+  holder.innerHTML = Array.from({ length: 34 }, () => {
+    const x = 2 + Math.random() * 96;
+    const y = 2 + Math.random() * 94;
+    const size = 2 + Math.random() * 5;
+    const delay = Math.random() * 2.2;
+    const dur = 1.7 + Math.random() * 2.2;
+    return `<i style="--gx:${x}%;--gy:${y}%;--gs:${size}px;--gd:${delay}s;--gdur:${dur}s"></i>`;
+  }).join("");
+}
+
+function buildGachaOrbs(results) {
+  const field = document.getElementById("gachaOrbField");
+  if (!field) return;
+  field.innerHTML = results.map((result, index) => {
+    const tier = gachaOrbTier(result);
+    return `
+      <div class="gacha-orb-item ${tier}" style="--orb-delay:${index * 70}ms">
+        <div class="gacha-orb">
+          <span class="gacha-orb-core"></span>
+          <span class="gacha-orb-glass"></span>
+          ${tier === "limited" ? `<span class="gacha-orb-limited-mark">✦</span>` : ""}
+        </div>
+        <small>${tier === "limited" ? "LIMITED" : tier.toUpperCase()}</small>
+      </div>`;
+  }).join("");
+}
+
+function setGachaSequenceInputLock(ms = 480) {
+  gachaSequence.inputLocked = true;
+  window.setTimeout(() => {
+    if (gachaSequence.active) gachaSequence.inputLocked = false;
+  }, ms);
+}
+
+function startGachaSequence(type, results) {
+  const overlay = document.getElementById("gachaSequenceOverlay");
+  if (!overlay) {
+    showGachaResults(type, results);
+    saveData.pendingGacha = null;
+    saveGame();
+    return;
+  }
+
+  const actualTier = gachaResultTier(results);
+  const canFakeout = actualTier === "ssr" || actualTier === "limited";
+  const fakeout = canFakeout && Math.random() < 0.01;
+  const doorTier = fakeout ? "sr" : actualTier;
+
+  gachaSequence = {
+    active: true,
+    stage: 0,
+    type,
+    results: deepClone(results),
+    actualTier,
+    doorTier,
+    fakeout,
+    inputLocked: true
+  };
+
+  buildGachaSequenceStars();
+  buildGachaOrbs(results);
+
+  overlay.className = `gacha-sequence-overlay ${doorTier}`;
+  overlay.setAttribute("aria-hidden", "false");
+
+  const title = document.getElementById("gachaSequenceTitle");
+  const subtitle = document.getElementById("gachaSequenceSubtitle");
+  const label = document.getElementById("gachaSequenceLabel");
+  const doorGrade = document.getElementById("gachaDoorGrade");
+  const doorMark = document.getElementById("gachaDoorMark");
+  const doorStage = document.getElementById("gachaDoorStage");
+  const orbField = document.getElementById("gachaOrbField");
+  const promotion = document.getElementById("gachaPromotionBanner");
+  const touch = document.getElementById("gachaSequenceTouchText");
+
+  if (title) title.textContent = "문을 열어주세요";
+  if (subtitle) subtitle.textContent = "화면을 터치하면 문이 열려요.";
+  if (label) label.textContent = type === "limited" ? "LIMITED SUMMON" : "STANDARD SUMMON";
+  if (doorGrade) doorGrade.textContent = gachaDoorLabel(doorTier);
+  if (doorMark) doorMark.textContent = doorTier === "limited" ? "✦" : doorTier === "ssr" ? "◇" : doorTier === "sr" ? "★" : "✧";
+  if (touch) touch.textContent = "TOUCH";
+  doorStage?.classList.remove("opened", "promoted");
+  orbField?.classList.add("hidden");
+  promotion?.classList.add("hidden");
+
+  document.body.classList.add("gacha-cinematic-open");
+  setGachaSequenceInputLock(520);
+}
+
+function advanceGachaSequence() {
+  if (!gachaSequence.active || gachaSequence.inputLocked) return;
+
+  const overlay = document.getElementById("gachaSequenceOverlay");
+  const title = document.getElementById("gachaSequenceTitle");
+  const subtitle = document.getElementById("gachaSequenceSubtitle");
+  const doorStage = document.getElementById("gachaDoorStage");
+  const orbField = document.getElementById("gachaOrbField");
+  const promotion = document.getElementById("gachaPromotionBanner");
+  const promotionText = document.getElementById("gachaPromotionText");
+  const touch = document.getElementById("gachaSequenceTouchText");
+
+  if (gachaSequence.stage === 0) {
+    gachaSequence.stage = 1;
+    doorStage?.classList.add("opened");
+    overlay?.classList.add("door-opened");
+
+    if (title) {
+      title.textContent =
+        gachaSequence.doorTier === "limited" ? "LIMITED...!" :
+        gachaSequence.doorTier === "ssr" ? "SSR 확정!" :
+        gachaSequence.doorTier === "sr" ? "금빛이 번쩍였어요" :
+        "빛이 흘러나와요";
+    }
+    if (subtitle) subtitle.textContent = "다시 터치하면 구슬을 확인할 수 있어요.";
+    if (touch) touch.textContent = "NEXT";
+    setGachaSequenceInputLock(650);
+    return;
+  }
+
+  if (gachaSequence.stage === 1) {
+    gachaSequence.stage = 2;
+    orbField?.classList.remove("hidden");
+    doorStage?.classList.add("orbs-visible");
+
+    if (gachaSequence.fakeout) {
+      overlay?.classList.remove("sr");
+      overlay?.classList.add("fakeout", `promotion-${gachaSequence.actualTier}`);
+      doorStage?.classList.add("promoted");
+      if (promotionText) {
+        promotionText.textContent =
+          gachaSequence.actualTier === "limited" ? "LIMITED 승격!" : "SSR 승격!";
+      }
+      promotion?.classList.remove("hidden");
+
+      if (title) {
+        title.textContent =
+          gachaSequence.actualTier === "limited" ? "금빛이... 한정의 빛으로!" : "금빛이... 무지개로!";
+      }
+      if (subtitle) subtitle.textContent = "구슬에서 진짜 등급이 드러났어요.";
+    } else {
+      if (title) title.textContent = `${gachaTierKorean(gachaSequence.actualTier)} 구슬 등장`;
+      if (subtitle) subtitle.textContent = "한 번 더 터치하면 결과 카드를 공개해요.";
+    }
+
+    if (touch) touch.textContent = "RESULT";
+    setGachaSequenceInputLock(gachaSequence.fakeout ? 900 : 620);
+    return;
+  }
+
+  finishGachaSequence(false);
+}
+
+function finishGachaSequence(skipped = false) {
+  if (!gachaSequence.active) return;
+
+  const type = gachaSequence.type;
+  const results = deepClone(gachaSequence.results);
+  const messageId = type === "limited" ? "limitedGachaMessage" : "normalGachaMessage";
+  const overlay = document.getElementById("gachaSequenceOverlay");
+
+  gachaSequence.active = false;
+  gachaSequence.inputLocked = false;
+
+  overlay?.classList.add("closing");
+  window.setTimeout(() => {
+    overlay?.classList.add("hidden");
+    overlay?.setAttribute("aria-hidden", "true");
+    if (overlay) overlay.className = "gacha-sequence-overlay hidden";
+  }, skipped ? 30 : 260);
+
+  document.body.classList.remove("gacha-cinematic-open");
+
+  saveData.pendingGacha = null;
+  saveGame();
+  renderGacha();
+  renderCollection();
+  showGachaResults(type, results);
+  setMessage(messageId, `${results.length}회 뽑기가 완료됐어요.${skipped ? " · 연출 SKIP" : ""}`, "success");
+}
+
+document.getElementById("gachaSequenceOverlay")?.addEventListener("pointerup", (event) => {
+  if (event.target.closest("#gachaSequenceSkip")) return;
+  advanceGachaSequence();
+});
+
+document.getElementById("gachaSequenceSkip")?.addEventListener("pointerup", (event) => {
+  event.stopPropagation();
+  finishGachaSequence(true);
+});
 
 function playGachaFx(tier) {
   const layer = document.getElementById("gachaFxLayer");
@@ -991,8 +1230,8 @@ function renderGacha() {
   document.getElementById("limitedExchangeCostText").textContent = `교환 필요 ${limitedSettings.exchangeLpt} LPT`;
 
   const normalValidation = validateNormalGacha();
-  document.getElementById("normalDraw1Button").disabled = Boolean(normalValidation);
-  document.getElementById("normalDraw10Button").disabled = Boolean(normalValidation);
+  document.getElementById("normalDraw1Button").disabled = Boolean(normalValidation) || gachaSequence.active;
+  document.getElementById("normalDraw10Button").disabled = Boolean(normalValidation) || gachaSequence.active;
   if (normalValidation && publicDataLoaded) setMessage("normalGachaMessage", normalValidation, "error");
 
   const limitedRate = document.getElementById("limitedRateRow");
@@ -1024,8 +1263,8 @@ function renderGacha() {
     </div>` : `<div class="card">진행 중인 한정 픽업이 없어요.</div>`;
 
   const limitedDisabled = Boolean(validateLimitedGacha());
-  document.getElementById("limitedDraw1Button").disabled = limitedDisabled;
-  document.getElementById("limitedDraw10Button").disabled = limitedDisabled;
+  document.getElementById("limitedDraw1Button").disabled = limitedDisabled || gachaSequence.active;
+  document.getElementById("limitedDraw10Button").disabled = limitedDisabled || gachaSequence.active;
 
   renderNormalExchange();
   renderLimitedExchange();
@@ -1082,7 +1321,7 @@ function renderNormalExchange() {
       <div class="exchange-card-body">
         <strong>${escapeHTML(char.name)}</strong>
         <small>현재 보유 ${getOwnedCount(char.id)}장 · ${generalSettings.exchangePt} PT</small>
-        <button data-normal-exchange="${char.id}" ${saveData.normalPity < generalSettings.exchangePt ? "disabled" : ""}>교환하기</button>
+        <button data-normal-exchange="${char.id}" ${saveData.normalPity < generalSettings.exchangePt || gachaSequence.active ? "disabled" : ""}>교환하기</button>
       </div>
     </div>`).join("");
 
@@ -1092,6 +1331,7 @@ function renderNormalExchange() {
 }
 
 function exchangeNormalSSR(id) {
+  if (gachaSequence.active) return;
   const char = characters.find((c) => c.id === id && !c.is_limited && c.rarity === "SSR");
   if (!char || saveData.normalPity < generalSettings.exchangePt) return;
   if (!confirm(`${char.name} 1장을 ${generalSettings.exchangePt} PT로 교환할까요?`)) return;
@@ -1118,7 +1358,7 @@ function renderLimitedExchange() {
       <div class="exchange-card-body">
         <strong>${escapeHTML(char.name)}</strong>
         <small>현재 보유 ${getOwnedCount(char.id)}장 · ${limitedSettings.exchangeLpt} LPT</small>
-        <button data-limited-exchange="${char.id}" ${saveData.limitedPity < limitedSettings.exchangeLpt ? "disabled" : ""}>교환하기</button>
+        <button data-limited-exchange="${char.id}" ${saveData.limitedPity < limitedSettings.exchangeLpt || gachaSequence.active ? "disabled" : ""}>교환하기</button>
       </div>
     </div>`).join("");
   grid.querySelectorAll("[data-limited-exchange]").forEach((button) => {
@@ -1127,6 +1367,7 @@ function renderLimitedExchange() {
 }
 
 function exchangeLimited(id) {
+  if (gachaSequence.active) return;
   const char = activeLimitedCharacters().find((c) => c.id === id);
   if (!char || saveData.limitedPity < limitedSettings.exchangeLpt) return;
   if (!confirm(`${char.name} 1장을 ${limitedSettings.exchangeLpt} LPT로 교환할까요?`)) return;
@@ -1165,7 +1406,7 @@ function renderCollection() {
     const owned = getOwnedCount(char.id);
     if (!owned) {
       return `
-        <article class="collection-card locked">
+        <article class="collection-card locked collection-card-clickable" data-collection-card="${char.id}" tabindex="0" role="button" aria-label="미획득 캐릭터 상세 보기">
           <div class="collection-image">🔒</div>
           <div class="collection-body">
             <div class="collection-topline"><span class="rarity-badge ${char.is_limited ? "limited" : char.rarity.toLowerCase()}">${char.is_limited ? "LIMITED" : escapeHTML(char.rarity)}</span></div>
@@ -1179,7 +1420,7 @@ function renderCollection() {
     const canBreak = char.rarity === "SSR" && lb < 3 && duplicate >= 1;
     const stars = char.rarity === "SSR" ? `${"★".repeat(lb)}${"☆".repeat(3 - lb)}` : "";
     return `
-      <article class="collection-card">
+      <article class="collection-card collection-card-clickable" data-collection-card="${char.id}" tabindex="0" role="button" aria-label="${escapeHTML(char.name)} 상세 보기">
         <div class="collection-image">${artHTML(char)}</div>
         <div class="collection-body">
           <div class="collection-topline">
@@ -1200,12 +1441,158 @@ function renderCollection() {
   }).join("");
 
   grid.querySelectorAll("[data-limit-break]").forEach((button) => {
-    button.addEventListener("click", () => limitBreakCharacter(button.dataset.limitBreak));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      limitBreakCharacter(button.dataset.limitBreak);
+    });
   });
   grid.querySelectorAll("[data-quick-home]").forEach((button) => {
-    button.addEventListener("click", () => quickToggleHome(button.dataset.quickHome));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      quickToggleHome(button.dataset.quickHome);
+    });
+  });
+
+  grid.querySelectorAll("[data-collection-card]").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      openCollectionDetail(card.dataset.collectionCard);
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest("button")) return;
+      event.preventDefault();
+      openCollectionDetail(card.dataset.collectionCard);
+    });
   });
 }
+
+function renderCollectionDetail() {
+  const id = collectionDetailCharacterId;
+  const char = characters.find((c) => c.id === id);
+  const modal = document.getElementById("collectionDetailModal");
+  if (!char || !modal) return;
+
+  const owned = getOwnedCount(id);
+  const locked = owned <= 0;
+  const lb = char.rarity === "SSR" ? getLimitBreakLevel(id) : 0;
+  const duplicate = Math.max(0, owned - 1);
+  const canBreak = char.rarity === "SSR" && lb < 3 && duplicate >= 1;
+  const imageUrl = locked ? "" : characterDisplayImage(char, "collection");
+
+  const image = document.getElementById("collectionDetailImage");
+  const fallback = document.getElementById("collectionDetailFallback");
+  const rarity = document.getElementById("collectionDetailRarity");
+  const fullBadge = document.getElementById("collectionDetailFullBadge");
+  const name = document.getElementById("collectionDetailName");
+  const counts = document.getElementById("collectionDetailCounts");
+  const limit = document.getElementById("collectionDetailLimit");
+  const stars = document.getElementById("collectionDetailStars");
+  const limitMeta = document.getElementById("collectionDetailLimitMeta");
+  const limitButton = document.getElementById("collectionDetailLimitButton");
+  const actions = document.getElementById("collectionDetailActions");
+  const homeButton = document.getElementById("collectionDetailHomeButton");
+  const lockedBox = document.getElementById("collectionDetailLocked");
+  const card = document.getElementById("collectionDetailCard");
+
+  if (name) name.textContent = locked ? "???" : char.name;
+  if (rarity) {
+    rarity.textContent = char.is_limited ? "LIMITED · SSR" : char.rarity;
+    rarity.className = `collection-detail-rarity ${char.is_limited ? "limited" : String(char.rarity).toLowerCase()}`;
+  }
+
+  if (image && fallback) {
+    if (imageUrl) {
+      image.src = imageUrl;
+      image.alt = `${char.name} 전체 일러스트`;
+      image.classList.remove("hidden");
+      fallback.classList.add("hidden");
+    } else {
+      image.removeAttribute("src");
+      image.classList.add("hidden");
+      fallback.classList.remove("hidden");
+      fallback.textContent = locked ? "🔒" : (char.is_limited ? "LIMITED" : char.rarity);
+    }
+  }
+
+  if (counts) {
+    counts.innerHTML = locked
+      ? `<span>🔒 미획득</span>`
+      : `<span>보유 ${owned}장</span><span>중복 ${duplicate}장</span>`;
+  }
+
+  if (fullBadge) fullBadge.classList.toggle("hidden", lb !== 3);
+  if (card) {
+    card.classList.toggle("locked", locked);
+    card.classList.toggle("limited", Boolean(char.is_limited));
+  }
+
+  if (char.rarity === "SSR" && !locked) {
+    limit?.classList.remove("hidden");
+    if (stars) stars.textContent = `${"★".repeat(lb)}${"☆".repeat(3 - lb)}`;
+    if (limitMeta) limitMeta.textContent = `강화 ${lb}/3 · 남은 중복 ${duplicate}장`;
+    if (limitButton) {
+      limitButton.dataset.characterId = char.id;
+      limitButton.disabled = !canBreak;
+      limitButton.textContent = lb === 3 ? "★★★ FULL" : canBreak ? "한계돌파" : "중복 카드 필요";
+    }
+  } else {
+    limit?.classList.add("hidden");
+    if (limitButton) limitButton.dataset.characterId = "";
+  }
+
+  actions?.classList.toggle("hidden", locked);
+  lockedBox?.classList.toggle("hidden", !locked);
+
+  if (homeButton && !locked) {
+    const selected = saveData.homeCharacters.includes(char.id);
+    homeButton.dataset.characterId = char.id;
+    homeButton.textContent = selected ? "홈 설정 해제" : "홈 후보로 설정";
+    homeButton.classList.toggle("active", selected);
+  }
+}
+
+function openCollectionDetail(id) {
+  const char = characters.find((c) => c.id === id);
+  if (!char) return;
+  collectionDetailCharacterId = id;
+  renderCollectionDetail();
+  document.getElementById("collectionDetailModal")?.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeCollectionDetail() {
+  document.getElementById("collectionDetailModal")?.classList.add("hidden");
+  collectionDetailCharacterId = null;
+  if (document.querySelectorAll(".modal-backdrop:not(.hidden)").length === 0) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+document.getElementById("closeCollectionDetailModal")?.addEventListener("click", closeCollectionDetail);
+document.getElementById("collectionDetailModal")?.addEventListener("click", (event) => {
+  if (event.target.id === "collectionDetailModal") closeCollectionDetail();
+});
+
+document.getElementById("collectionDetailLimitButton")?.addEventListener("click", () => {
+  const id = document.getElementById("collectionDetailLimitButton")?.dataset.characterId;
+  if (!id) return;
+  closeCollectionDetail();
+  limitBreakCharacter(id);
+});
+
+document.getElementById("collectionDetailHomeButton")?.addEventListener("click", () => {
+  const id = document.getElementById("collectionDetailHomeButton")?.dataset.characterId;
+  if (!id) return;
+  quickToggleHome(id);
+  collectionDetailCharacterId = id;
+  renderCollectionDetail();
+});
+
+document.getElementById("collectionDetailHomeSettingsButton")?.addEventListener("click", () => {
+  closeCollectionDetail();
+  openHomeCharacterModal();
+});
 
 function limitBreakCharacter(id) {
   const char = characters.find((c) => c.id === id);
@@ -1302,6 +1689,7 @@ function quickToggleHome(id) {
   saveGame();
   renderCollection();
   renderHomeCharacter();
+  if (collectionDetailCharacterId === id) renderCollectionDetail();
 }
 
 /* =========================================================
