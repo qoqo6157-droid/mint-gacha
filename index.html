@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <header>
@@ -255,33 +255,419 @@
       <div class="collection-grid" id="collectionGrid"></div>
     </section>
 
+
     <!-- 게임 -->
     <section id="games" class="page">
-      <h2>게임</h2>
-      <div class="game-placeholder-grid">
-        <div class="card">카드 짝 맞추기</div>
-        <div class="card">캐릭터 팡</div>
-        <div class="card">캐릭터 점프</div>
-        <div class="card">테트리스</div>
-        <div class="card">리듬 탭</div>
+      <div class="page-title-row">
+        <div>
+          <p class="section-label">MINI GAMES</p>
+          <h2>게임</h2>
+        </div>
+        <div class="page-point-pill" id="gamePointDisplay">3,000P</div>
       </div>
+
+      <div class="game-menu-grid">
+        <button class="game-menu-card active" data-game-view="matching"><span>🃏</span><strong>카드 짝 맞추기</strong><small>기억력 게임</small></button>
+        <button class="game-menu-card" data-game-view="pang"><span>💥</span><strong>캐릭터 팡</strong><small>6×6 매치 퍼즐</small></button>
+        <button class="game-menu-card" data-game-view="runner"><span>🏃</span><strong>캐릭터 점프</strong><small>2단 점프 러너</small></button>
+        <button class="game-menu-card" data-game-view="tetris"><span>🧱</span><strong>테트리스</strong><small>HOLD · NEXT 5</small></button>
+        <button class="game-menu-card" data-game-view="rhythm"><span>🎵</span><strong>리듬 탭</strong><small>D F J K</small></button>
+      </div>
+
+      <!-- 카드 짝 맞추기 -->
+      <section class="mini-game-panel" id="gameViewMatching">
+        <div class="mini-game-head">
+          <div>
+            <p class="section-label">MATCHING</p>
+            <h3>카드 짝 맞추기</h3>
+            <p>같은 캐릭터 카드 두 장을 찾아 맞춰보세요.</p>
+          </div>
+          <div class="game-bonus-pill" id="matchingBonusText">풀돌 보너스 +0%</div>
+        </div>
+
+        <div class="difficulty-row">
+          <button class="difficulty-button active" data-match-difficulty="easy">쉬움 · 4쌍</button>
+          <button class="difficulty-button" data-match-difficulty="normal">보통 · 6쌍</button>
+          <button class="difficulty-button" data-match-difficulty="hard">어려움 · 8쌍</button>
+        </div>
+
+        <div class="game-hud three">
+          <div><span>시간</span><strong id="matchingTime">0.0초</strong></div>
+          <div><span>시도</span><strong id="matchingTries">0</strong></div>
+          <div><span>매칭</span><strong id="matchingPairs">0 / 4</strong></div>
+        </div>
+
+        <div class="matching-board" id="matchingBoard"></div>
+
+        <div class="game-action-row">
+          <button class="mint-button" id="matchingStartButton">게임 시작</button>
+        </div>
+        <p class="inline-message" id="matchingMessage"></p>
+        <div class="record-box" id="matchingRecordBox"></div>
+      </section>
+
+      <!-- 캐릭터 팡 -->
+      <section class="mini-game-panel hidden" id="gameViewPang">
+        <div class="mini-game-head">
+          <div>
+            <p class="section-label">CHARACTER PANG PLUS</p>
+            <h3>캐릭터 팡</h3>
+            <p>인접한 블록을 바꿔 3개 이상 연결하세요.</p>
+          </div>
+          <div class="game-bonus-pill" id="pangBonusText">장착 보너스 +0%</div>
+        </div>
+
+        <div class="game-character-picker">
+          <label>
+            <span>장착 SSR</span>
+            <select id="pangCharacterSelect"></select>
+          </label>
+          <div class="selected-character-chip" id="pangSelectedCharacter">SSR을 선택해주세요.</div>
+        </div>
+
+        <div class="game-hud three">
+          <div><span>점수</span><strong id="pangScore">0</strong></div>
+          <div><span>남은 이동</span><strong id="pangMoves">30</strong></div>
+          <div><span>연쇄</span><strong id="pangCombo">0</strong></div>
+        </div>
+
+        <div class="pang-tools">
+          <button data-pang-tool="slingshot">🎯 새총 <small>1회</small></button>
+          <button data-pang-tool="row">↔️ 불도저 <small>1회</small></button>
+          <button data-pang-tool="col">↕️ 깜짝상자 <small>1회</small></button>
+          <button data-pang-tool="hammer">🔨 망치 <small>1회</small></button>
+          <button data-pang-tool="shuffle">🔀 셔플 <small>1회</small></button>
+        </div>
+
+        <div class="pang-board-wrap">
+          <div class="pang-board" id="pangBoard"></div>
+          <div class="pang-flash" id="pangFlash"></div>
+        </div>
+
+        <div class="game-action-row">
+          <button class="mint-button" id="pangStartButton">게임 시작</button>
+          <button class="white-button" id="pangQuitButton" disabled>포기</button>
+        </div>
+        <p class="inline-message" id="pangMessage"></p>
+        <div class="record-box" id="pangRecordBox"></div>
+      </section>
+
+      <!-- 캐릭터 점프 -->
+      <section class="mini-game-panel hidden" id="gameViewRunner">
+        <div class="mini-game-head">
+          <div>
+            <p class="section-label">CHARACTER JUMP</p>
+            <h3>캐릭터 점프</h3>
+            <p>짧게 누르면 낮게, 길게 누르면 높게. 공중에서 한 번 더 누르면 2단 점프!</p>
+          </div>
+          <div class="game-bonus-pill" id="runnerBonusText">선택 보너스 +0%</div>
+        </div>
+
+        <div class="game-character-picker">
+          <label>
+            <span>플레이 캐릭터</span>
+            <select id="runnerCharacterSelect"></select>
+          </label>
+        </div>
+
+        <div class="game-hud three">
+          <div><span>점수</span><strong id="runnerScore">0</strong></div>
+          <div><span>최고 점수</span><strong id="runnerHighScore">0</strong></div>
+          <div><span>속도</span><strong id="runnerSpeed">1.0×</strong></div>
+        </div>
+
+        <div class="runner-canvas-wrap">
+          <canvas id="runnerCanvas" width="760" height="320"></canvas>
+          <button class="runner-jump-button" id="runnerJumpButton">JUMP</button>
+        </div>
+
+        <div class="game-action-row">
+          <button class="mint-button" id="runnerStartButton">게임 시작</button>
+          <button class="white-button" id="runnerPauseButton" disabled>일시정지</button>
+          <button class="white-button" id="runnerQuitButton" disabled>포기</button>
+        </div>
+        <p class="inline-message" id="runnerMessage"></p>
+      </section>
+
+      <!-- 테트리스 -->
+      <section class="mini-game-panel hidden" id="gameViewTetris">
+        <div class="mini-game-head">
+          <div>
+            <p class="section-label">TETRIS</p>
+            <h3>테트리스</h3>
+            <p>7-Bag · HOLD · NEXT 5 · Ghost · Combo · B2B · T-Spin · Perfect Clear</p>
+          </div>
+          <div class="game-bonus-pill" id="tetrisBonusText">선택 보너스 +0%</div>
+        </div>
+
+        <div class="game-character-picker">
+          <label>
+            <span>플레이 캐릭터</span>
+            <select id="tetrisCharacterSelect"></select>
+          </label>
+        </div>
+
+        <div class="tetris-mobile-strip">
+          <button id="tetrisMobileHold">HOLD</button>
+          <div id="tetrisMobileNext">NEXT · -</div>
+          <button id="tetrisMobilePause">PAUSE</button>
+        </div>
+
+        <div class="tetris-layout">
+          <aside class="tetris-side tetris-hold-side">
+            <span>HOLD</span>
+            <div class="tetromino-preview" id="tetrisHoldPreview">-</div>
+          </aside>
+
+          <div class="tetris-board-wrap">
+            <canvas id="tetrisCanvas" width="300" height="600"></canvas>
+            <div class="tetris-overlay hidden" id="tetrisOverlay"></div>
+          </div>
+
+          <aside class="tetris-side">
+            <span>NEXT 5</span>
+            <div class="tetris-next-list" id="tetrisNextList"></div>
+          </aside>
+        </div>
+
+        <div class="game-hud four">
+          <div><span>점수</span><strong id="tetrisScore">0</strong></div>
+          <div><span>라인</span><strong id="tetrisLines">0</strong></div>
+          <div><span>레벨</span><strong id="tetrisLevel">1</strong></div>
+          <div><span>콤보</span><strong id="tetrisCombo">-</strong></div>
+        </div>
+
+        <div class="tetris-key-help">← → 이동 · ↓ 소프트 드롭 · ↑/X 회전 · Z 반대 회전 · Space 하드 드롭 · C/Shift HOLD · P/Esc 일시정지</div>
+
+        <div class="game-action-row">
+          <button class="mint-button" id="tetrisStartButton">게임 시작</button>
+          <button class="white-button" id="tetrisPauseButton" disabled>일시정지</button>
+          <button class="white-button" id="tetrisRestartButton" disabled>다시 시작</button>
+          <button class="white-button" id="tetrisQuitButton" disabled>포기</button>
+        </div>
+        <p class="inline-message" id="tetrisMessage"></p>
+        <div class="record-box" id="tetrisRecordBox"></div>
+      </section>
+
+      <!-- 리듬 -->
+      <section class="mini-game-panel hidden" id="gameViewRhythm">
+        <div class="mini-game-head">
+          <div>
+            <p class="section-label">RHYTHM TAP</p>
+            <h3>리듬 탭</h3>
+            <p>4레인 D / F / J / K. 기본 60초 비트로 플레이해요.</p>
+          </div>
+          <div class="game-bonus-pill" id="rhythmBonusText">응원 보너스 +0%</div>
+        </div>
+
+        <div class="rhythm-setting-grid">
+          <label><span>응원 캐릭터</span><select id="rhythmCharacterSelect"></select></label>
+          <label><span>난이도</span>
+            <select id="rhythmDifficultySelect">
+              <option value="EASY">EASY</option>
+              <option value="NORMAL" selected>NORMAL</option>
+              <option value="HARD">HARD</option>
+              <option value="SPECIAL">SPECIAL</option>
+            </select>
+          </label>
+          <label><span>노트 속도 <b id="rhythmSpeedLabel">1.0×</b></span><input id="rhythmSpeedInput" type="range" min="0.5" max="8" value="1" step="0.1"></label>
+          <label><span>타이밍 보정 <b id="rhythmOffsetLabel">0ms</b></span><input id="rhythmOffsetInput" type="range" min="-200" max="200" value="0" step="10"></label>
+        </div>
+
+        <div class="rhythm-hud">
+          <div><span>점수</span><strong id="rhythmScore">0</strong></div>
+          <div><span>콤보</span><strong id="rhythmCombo">0</strong></div>
+          <div><span>HP</span><strong id="rhythmHp">100</strong></div>
+          <div><span>정확도</span><strong id="rhythmAccuracy">100%</strong></div>
+          <div><span>등급</span><strong id="rhythmGrade">S</strong></div>
+        </div>
+
+        <div class="rhythm-stage-wrap">
+          <canvas id="rhythmCanvas" width="520" height="650"></canvas>
+          <div class="rhythm-countdown hidden" id="rhythmCountdown">3</div>
+        </div>
+
+        <div class="rhythm-mobile-keys">
+          <button data-rhythm-lane="0">D</button>
+          <button data-rhythm-lane="1">F</button>
+          <button data-rhythm-lane="2">J</button>
+          <button data-rhythm-lane="3">K</button>
+        </div>
+
+        <div class="game-action-row">
+          <button class="mint-button" id="rhythmStartButton">게임 시작</button>
+          <button class="white-button" id="rhythmQuitButton" disabled>포기</button>
+          <button class="white-button" id="rhythmOffsetResetButton">보정 0ms</button>
+        </div>
+        <p class="inline-message" id="rhythmMessage"></p>
+      </section>
     </section>
 
     <!-- 펫 -->
     <section id="pet" class="page">
-      <h2>펫</h2>
-      <div class="card">펫 키우기</div>
+      <div class="page-title-row">
+        <div>
+          <p class="section-label">MY PET</p>
+          <h2>펫 키우기</h2>
+        </div>
+        <div class="pet-stage-pill" id="petStagePill">알</div>
+      </div>
+
+      <section class="pet-empty-panel" id="petSelectPanel">
+        <div class="pet-egg-icon">🥚</div>
+        <h3>새 펫을 골라주세요</h3>
+        <p>한 번에 한 마리만 키울 수 있어요. 현재는 기본 민트 펫이 준비되어 있어요.</p>
+        <button class="mint-button" id="chooseDefaultPetButton">민트 알 선택</button>
+      </section>
+
+      <section class="pet-main hidden" id="petMainPanel">
+        <div class="pet-visual-card">
+          <div class="pet-alert" id="petAlert"></div>
+          <button class="pet-visual" id="petVisual" type="button" aria-label="펫 터치">
+            <span id="petVisualEmoji">🥚</span>
+          </button>
+          <h3 id="petName">민트</h3>
+          <p id="petDialogue">...</p>
+          <small id="petDaysText">함께한 지 1일</small>
+        </div>
+
+        <div class="pet-info-card">
+          <div class="pet-meter-row"><span>EXP</span><div><i id="petExpBar"></i></div><strong id="petExpText">0 / 300</strong></div>
+          <div class="pet-meter-row"><span>호감도</span><div><i id="petAffectionBar"></i></div><strong id="petAffectionText">0</strong></div>
+          <div class="pet-meter-row"><span>기분</span><div><i id="petMoodBar"></i></div><strong id="petMoodText">80</strong></div>
+          <div class="pet-meter-row"><span>배고픔</span><div><i id="petHungerBar"></i></div><strong id="petHungerText">0</strong></div>
+          <div class="pet-meter-row"><span>더러움</span><div><i id="petDirtBar"></i></div><strong id="petDirtText">0</strong></div>
+
+          <div class="pet-action-grid">
+            <button data-pet-action="feed">🍚 밥주기<small id="petCooldownFeed"></small></button>
+            <button data-pet-action="wash">🛁 씻기기<small id="petCooldownWash"></small></button>
+            <button data-pet-action="play">🎾 놀아주기<small id="petCooldownPlay"></small></button>
+            <button data-pet-action="walk">🌿 산책하기<small id="petCooldownWalk"></small></button>
+            <button data-pet-action="gift">🎁 선물하기<small id="petCooldownGift"></small></button>
+          </div>
+
+          <button class="white-button pet-change-button" id="petChangeButton">다른 알로 다시 시작</button>
+        </div>
+      </section>
+
+      <section class="home-section pet-archive-section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-label">ARCHIVE</p>
+            <h3>육성 완료 펫 보관함</h3>
+          </div>
+        </div>
+        <div class="pet-archive-grid" id="petArchiveGrid"></div>
+      </section>
     </section>
 
     <!-- 카지노 -->
     <section id="casino" class="page">
-      <h2>카지노</h2>
-      <div class="game-placeholder-grid">
-        <div class="card">가위바위보</div>
-        <div class="card">슬롯머신</div>
-        <div class="card">블랙잭</div>
-        <div class="card">NULL DERBY</div>
+      <div class="page-title-row">
+        <div>
+          <p class="section-label">POINT CASINO</p>
+          <h2>포인트 카지노</h2>
+        </div>
+        <div class="page-point-pill" id="casinoPointDisplay">3,000P</div>
       </div>
+
+      <div class="casino-notice">게임 포인트만 사용하며 현금 교환·출금 기능은 없습니다.</div>
+
+      <div class="casino-tabs">
+        <button class="casino-tab active" data-casino-view="rps">가위바위보</button>
+        <button class="casino-tab" data-casino-view="slots">슬롯머신</button>
+        <button class="casino-tab" data-casino-view="blackjack">블랙잭</button>
+        <button class="casino-tab" data-casino-view="derby">NULL DERBY</button>
+      </div>
+
+      <section class="casino-panel" id="casinoViewRps">
+        <div class="casino-game-card">
+          <h3>✊ 가위바위보</h3>
+          <div class="bet-row">
+            <input type="number" id="rpsBetInput" min="1" step="1" value="100">
+            <button class="white-button" data-allin="rps">전재산</button>
+          </div>
+          <div class="rps-choice-row">
+            <button data-rps-choice="scissors">✌️<span>가위</span></button>
+            <button data-rps-choice="rock">✊<span>바위</span></button>
+            <button data-rps-choice="paper">✋<span>보</span></button>
+          </div>
+          <div class="casino-result" id="rpsResult">선택해주세요.</div>
+        </div>
+      </section>
+
+      <section class="casino-panel hidden" id="casinoViewSlots">
+        <div class="casino-game-card">
+          <h3>🎰 슬롯머신</h3>
+          <div class="slot-reels" id="slotReels"><span>🍒</span><span>🍋</span><span>⭐</span></div>
+          <div class="bet-row">
+            <input type="number" id="slotBetInput" min="1" step="1" value="100">
+            <button class="white-button" data-allin="slots">전재산</button>
+            <button class="mint-button" id="slotSpinButton">SPIN</button>
+          </div>
+          <div class="casino-result" id="slotResult">💎💎💎 10배 · ⭐⭐⭐ 5배 · 🍒/🍋 3배 · 같은 그림 2개 본전</div>
+        </div>
+      </section>
+
+      <section class="casino-panel hidden" id="casinoViewBlackjack">
+        <div class="casino-game-card">
+          <div class="blackjack-head">
+            <h3>🃏 블랙잭</h3>
+            <span id="blackjackStreakText">연승 0</span>
+          </div>
+          <div class="blackjack-table">
+            <div>
+              <span>DEALER</span>
+              <div class="playing-cards" id="dealerCards"></div>
+              <strong id="dealerScore">?</strong>
+            </div>
+            <div>
+              <span>PLAYER</span>
+              <div class="playing-cards" id="playerCards"></div>
+              <strong id="playerScore">0</strong>
+            </div>
+          </div>
+          <div class="bet-row" id="blackjackBetRow">
+            <input type="number" id="blackjackBetInput" min="1" step="1" value="100">
+            <button class="quick-bet" data-bj-bet="100">100</button>
+            <button class="quick-bet" data-bj-bet="500">500</button>
+            <button class="quick-bet" data-bj-bet="1000">1,000</button>
+            <button class="quick-bet" data-bj-bet="5000">5,000</button>
+            <button class="white-button" data-allin="blackjack">전재산</button>
+            <button class="mint-button" id="blackjackDealButton">배팅 & 시작</button>
+          </div>
+          <div class="blackjack-actions hidden" id="blackjackActions">
+            <button class="mint-button" id="blackjackHitButton">HIT</button>
+            <button class="white-button" id="blackjackStandButton">STAND</button>
+            <button class="white-button" id="blackjackDoubleButton">DOUBLE</button>
+          </div>
+          <div class="casino-result" id="blackjackResult">배팅 후 시작하세요.</div>
+        </div>
+      </section>
+
+      <section class="casino-panel hidden" id="casinoViewDerby">
+        <div class="casino-game-card">
+          <h3>🏇 NULL DERBY</h3>
+          <p>등록 캐릭터 중 5명이 무작위 출전합니다. 1~3위를 순서대로 예측하세요.</p>
+          <div class="derby-racers" id="derbyRacers"></div>
+          <div class="derby-picks">
+            <label>1위<select id="derbyPick1"></select></label>
+            <label>2위<select id="derbyPick2"></select></label>
+            <label>3위<select id="derbyPick3"></select></label>
+          </div>
+          <div class="bet-row">
+            <input type="number" id="derbyBetInput" min="1" step="1" value="100">
+            <button class="quick-bet" data-derby-bet="100">100</button>
+            <button class="quick-bet" data-derby-bet="300">300</button>
+            <button class="quick-bet" data-derby-bet="500">500</button>
+            <button class="quick-bet" data-derby-bet="1000">1,000</button>
+            <button class="white-button" data-allin="derby">전재산</button>
+            <button class="mint-button" id="derbyStartButton">경기 시작</button>
+          </div>
+          <div class="derby-track" id="derbyTrack"></div>
+          <div class="casino-result" id="derbyResult">출전 선수를 불러오는 중...</div>
+        </div>
+      </section>
     </section>
 
     <!-- 관리 -->
@@ -295,9 +681,8 @@
       </div>
 
       <section class="admin-gate" id="adminGate">
-        <h3>관리자 권한이 필요해요.</h3>
-        <p id="adminGateText">로그인한 뒤 관리자 권한을 확인해주세요.</p>
-        <button class="mint-button admin-claim-button hidden" id="claimAdminButton">첫 관리자 권한 등록</button>
+        <h3>관리자 전용 메뉴예요.</h3>
+        <p id="adminGateText">관리자로 지정된 계정으로 로그인해주세요.</p>
       </section>
 
       <div id="adminContent" class="hidden">
@@ -487,6 +872,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>
