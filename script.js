@@ -726,6 +726,7 @@ document.addEventListener("keydown", (event) => {
   closeAuthModal();
   closeGachaResultModal();
   closeLimitBreakModal();
+  closeExchangeSuccessModal();
   closeHomeCharacterModal();
 });
 
@@ -1013,11 +1014,14 @@ function renderGacha() {
   }
 
   const strip = document.getElementById("limitedPickupStrip");
-  if (strip) strip.innerHTML = active.length ? active.map((char) => `
-    <div class="pickup-mini-card">
-      <div>${artHTML(char)}</div>
-      <div><strong>${escapeHTML(char.name)}</strong><small>LIMITED · ${escapeHTML(char.rarity)}</small></div>
-    </div>`).join("") : `<div class="card">진행 중인 한정 픽업이 없어요.</div>`;
+  if (strip) strip.innerHTML = active.length ? `
+    <div class="limited-pickup-text-list">
+      ${active.map((char) => `
+        <span class="limited-pickup-text-chip">
+          <strong>${escapeHTML(char.name)}</strong>
+          <small>LIMITED · ${escapeHTML(char.rarity)}</small>
+        </span>`).join("")}
+    </div>` : `<div class="card">진행 중인 한정 픽업이 없어요.</div>`;
 
   const limitedDisabled = Boolean(validateLimitedGacha());
   document.getElementById("limitedDraw1Button").disabled = limitedDisabled;
@@ -1026,6 +1030,43 @@ function renderGacha() {
   renderNormalExchange();
   renderLimitedExchange();
 }
+
+function showExchangeSuccess(char, currencyLabel, remainingPity) {
+  const modal = document.getElementById("exchangeSuccessModal");
+  if (!modal || !char) return;
+
+  const name = document.getElementById("exchangeSuccessCharacterName");
+  const detail = document.getElementById("exchangeSuccessDetail");
+  const owned = document.getElementById("exchangeSuccessOwned");
+  const pity = document.getElementById("exchangeSuccessPity");
+  const card = document.querySelector(`[data-normal-exchange="${CSS.escape(char.id)}"], [data-limited-exchange="${CSS.escape(char.id)}"]`)?.closest(".exchange-card");
+
+  if (name) name.textContent = char.name;
+  if (detail) detail.textContent = `${char.name} 1장을 성공적으로 교환했어요!`;
+  if (owned) owned.textContent = `현재 보유 ${getOwnedCount(char.id)}장`;
+  if (pity) pity.textContent = `남은 ${currencyLabel} ${Math.max(0, remainingPity)}`;
+
+  card?.classList.add("exchange-card-success");
+  setTimeout(() => card?.classList.remove("exchange-card-success"), 900);
+
+  modal.classList.remove("hidden");
+  modal.querySelector(".exchange-success-modal")?.classList.remove("play");
+  void modal.offsetWidth;
+  modal.querySelector(".exchange-success-modal")?.classList.add("play");
+  document.body.classList.add("modal-open");
+}
+
+function closeExchangeSuccessModal() {
+  document.getElementById("exchangeSuccessModal")?.classList.add("hidden");
+  if (document.querySelectorAll(".modal-backdrop:not(.hidden)").length === 0) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+document.getElementById("closeExchangeSuccessModal")?.addEventListener("click", closeExchangeSuccessModal);
+document.getElementById("exchangeSuccessModal")?.addEventListener("click", (event) => {
+  if (event.target.id === "exchangeSuccessModal") closeExchangeSuccessModal();
+});
 
 function renderNormalExchange() {
   const grid = document.getElementById("normalExchangeGrid");
@@ -1059,6 +1100,8 @@ function exchangeNormalSSR(id) {
   saveGame();
   renderGacha();
   renderCollection();
+  setMessage("normalGachaMessage", `✓ 교환 완료! ${char.name} 1장을 획득했어요.`, "success");
+  showExchangeSuccess(char, "PT", saveData.normalPity);
 }
 
 function renderLimitedExchange() {
@@ -1092,6 +1135,8 @@ function exchangeLimited(id) {
   saveGame();
   renderGacha();
   renderCollection();
+  setMessage("limitedGachaMessage", `✓ 교환 완료! ${char.name} 1장을 획득했어요.`, "success");
+  showExchangeSuccess(char, "LPT", saveData.limitedPity);
 }
 
 document.getElementById("refreshNormalExchangeButton")?.addEventListener("click", renderNormalExchange);
@@ -1178,19 +1223,73 @@ function limitBreakCharacter(id) {
   showLimitBreakModal(char, level + 1);
 }
 
+function buildLimitBreakSparks(level) {
+  const layer = document.getElementById("limitBreakSparkLayer");
+  if (!layer) return;
+  layer.innerHTML = "";
+
+  const count = level === 3 ? 28 : 18 + level * 2;
+  for (let i = 0; i < count; i++) {
+    const spark = document.createElement("span");
+    spark.className = `limit-break-spark ${level === 3 ? "full" : ""}`;
+    const angle = (Math.PI * 2 * i / count) + (Math.random() * .25);
+    const distance = 90 + Math.random() * (level === 3 ? 110 : 70);
+    spark.style.setProperty("--lb-x", `${Math.cos(angle) * distance}px`);
+    spark.style.setProperty("--lb-y", `${Math.sin(angle) * distance}px`);
+    spark.style.setProperty("--lb-delay", `${Math.round(Math.random() * 240)}ms`);
+    spark.style.setProperty("--lb-size", `${4 + Math.random() * 6}px`);
+    spark.style.setProperty("--lb-rot", `${Math.round(Math.random() * 240 - 120)}deg`);
+    layer.appendChild(spark);
+  }
+}
+
 function showLimitBreakModal(char, level) {
+  const modal = document.getElementById("limitBreakModal");
+  const stage = document.getElementById("limitBreakArtStage");
+  const image = document.getElementById("limitBreakImage");
+  const fallback = document.getElementById("limitBreakFallback");
+  const imageUrl = characterDisplayImage(char, "collection");
+
   document.getElementById("limitBreakCharacterName").textContent = char.name;
-  document.getElementById("limitBreakStageText").textContent = level === 3 ? "★★★ 3/3 FULL" : `${"★".repeat(level)}${"☆".repeat(3 - level)} ${level}/3`;
-  document.getElementById("limitBreakModal")?.classList.remove("hidden");
+  document.getElementById("limitBreakStageText").textContent =
+    level === 3 ? "★★★ 3/3 FULL" : `${"★".repeat(level)}${"☆".repeat(3 - level)} ${level}/3`;
+
+  if (image && fallback) {
+    if (imageUrl) {
+      image.src = imageUrl;
+      image.alt = `${char.name} 한계돌파 일러스트`;
+      image.classList.remove("hidden");
+      fallback.classList.add("hidden");
+    } else {
+      image.removeAttribute("src");
+      image.classList.add("hidden");
+      fallback.classList.remove("hidden");
+      fallback.textContent = char.is_limited ? "LIMITED SSR" : "SSR";
+    }
+  }
+
+  buildLimitBreakSparks(level);
+  stage?.classList.remove("play", "full");
+  if (level === 3) stage?.classList.add("full");
+
+  modal?.classList.remove("hidden");
   document.body.classList.add("modal-open");
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => stage?.classList.add("play"));
+  });
 }
 
 function closeLimitBreakModal() {
   document.getElementById("limitBreakModal")?.classList.add("hidden");
+  document.getElementById("limitBreakArtStage")?.classList.remove("play", "full");
   if (document.querySelectorAll(".modal-backdrop:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
 }
 
 document.getElementById("closeLimitBreakModal")?.addEventListener("click", closeLimitBreakModal);
+document.getElementById("limitBreakModal")?.addEventListener("click", (event) => {
+  if (event.target.id === "limitBreakModal") closeLimitBreakModal();
+});
 
 function quickToggleHome(id) {
   if (!getOwnedCount(id)) return;

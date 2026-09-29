@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <header>
@@ -1050,12 +1050,39 @@
 
   <!-- 한계돌파 모달 -->
   <div class="modal-backdrop hidden" id="limitBreakModal">
-    <div class="limit-break-modal">
-      <div class="limit-break-burst">★</div>
+    <div class="limit-break-modal limit-break-modal-v13">
+      <div class="limit-break-art-stage" id="limitBreakArtStage">
+        <div class="limit-break-aura"></div>
+        <div class="limit-break-ring ring-a"></div>
+        <div class="limit-break-ring ring-b"></div>
+        <div class="limit-break-art" id="limitBreakArt">
+          <img class="hidden" id="limitBreakImage" alt="">
+          <div class="limit-break-fallback" id="limitBreakFallback">SSR</div>
+        </div>
+        <div class="limit-break-spark-layer" id="limitBreakSparkLayer" aria-hidden="true"></div>
+        <div class="limit-break-shine"></div>
+      </div>
       <p class="section-label">LIMIT BREAK</p>
       <h2 id="limitBreakCharacterName">한계돌파!</h2>
       <p class="limit-break-stage" id="limitBreakStageText">★ 1/3</p>
+      <p class="limit-break-success-text">한계돌파 완료!</p>
       <button class="mint-button" id="closeLimitBreakModal" type="button">확인</button>
+    </div>
+  </div>
+
+  <!-- 캐릭터 교환 완료 모달 -->
+  <div class="modal-backdrop hidden" id="exchangeSuccessModal">
+    <div class="exchange-success-modal">
+      <div class="exchange-success-check">✓</div>
+      <p class="section-label">EXCHANGE COMPLETE</p>
+      <h2>교환 완료!</h2>
+      <strong id="exchangeSuccessCharacterName">캐릭터</strong>
+      <p id="exchangeSuccessDetail">캐릭터 1장을 획득했어요.</p>
+      <div class="exchange-success-stats">
+        <span id="exchangeSuccessOwned">보유 1장</span>
+        <span id="exchangeSuccessPity">남은 PT 0</span>
+      </div>
+      <button class="mint-button" id="closeExchangeSuccessModal" type="button">확인</button>
     </div>
   </div>
 
@@ -1086,6 +1113,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=12"></script>
+  <script src="script.js?v=13"></script>
 </body>
 </html>

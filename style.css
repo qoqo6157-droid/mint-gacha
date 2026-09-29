@@ -2524,3 +2524,395 @@ main {
     animation-duration: .01ms !important;
   }
 }
+
+
+/* =========================================================
+   V13 - 픽업 이미지 제거 / 교환 완료 강조 / 한계돌파 일러 연출
+========================================================= */
+
+/* 한정 픽업 영역: 이미지 카드 제거, 이름만 작고 깔끔하게 */
+.limited-pickup-strip {
+  display: block;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow: visible;
+}
+
+.limited-pickup-text-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.limited-pickup-text-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #f1cfdd;
+  border-radius: 999px;
+  background: rgba(255,255,255,.88);
+}
+
+.limited-pickup-text-chip strong {
+  color: #87536a;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.limited-pickup-text-chip small {
+  color: #c66b91;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+/* 교환 완료가 눈에 확 들어오도록 */
+.exchange-card.exchange-card-success {
+  animation: exchangeCardSuccess .85s cubic-bezier(.18,.86,.25,1.2);
+  border-color: #56d7ae !important;
+  box-shadow: 0 0 0 3px rgba(77,211,169,.15), 0 10px 28px rgba(44,180,137,.2);
+}
+
+.exchange-success-modal {
+  position: relative;
+  width: min(380px, 100%);
+  padding: 30px 26px 24px;
+  overflow: hidden;
+  border: 1px solid #c9eee1;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(87,221,178,.16), transparent 44%),
+    #fff;
+  box-shadow: 0 28px 80px rgba(29,104,83,.22);
+  text-align: center;
+}
+
+.exchange-success-modal.play {
+  animation: exchangeSuccessPop .48s cubic-bezier(.18,.88,.25,1.2) both;
+}
+
+.exchange-success-check {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#39cb9a,#78e5c3);
+  color: white;
+  font-size: 38px;
+  font-weight: 1000;
+  box-shadow: 0 10px 30px rgba(50,198,151,.28);
+  animation: exchangeCheckPulse .8s ease infinite alternate;
+}
+
+.exchange-success-modal h2 {
+  margin: 4px 0 7px;
+  color: #294a40;
+  font-size: 28px;
+  font-weight: 1000;
+  letter-spacing: -1.3px;
+}
+
+.exchange-success-modal > strong {
+  display: block;
+  color: #1f9e78;
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+.exchange-success-modal > p:not(.section-label) {
+  margin: 7px 0 14px;
+  color: #738c83;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.exchange-success-stats {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 17px;
+}
+
+.exchange-success-stats span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #edfff9;
+  color: #39846d;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+/* 한계돌파: 별 아이콘 대신 실제 캐릭터 일러스트 중심 */
+.limit-break-modal-v13 {
+  width: min(500px, 100%);
+  padding: 22px 22px 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(255,223,101,.16), transparent 35%),
+    #fff;
+}
+
+.limit-break-art-stage {
+  position: relative;
+  width: min(100%, 380px);
+  height: min(52vh, 390px);
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 16px;
+  overflow: hidden;
+  border: 1px solid #e2eee9;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255,233,145,.18), transparent 45%),
+    linear-gradient(145deg,#fbfffd,#f4fbf8);
+  isolation: isolate;
+}
+
+.limit-break-art {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+}
+
+.limit-break-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important;
+  object-position: center center;
+  filter: drop-shadow(0 12px 22px rgba(36,80,67,.16));
+}
+
+.limit-break-fallback {
+  width: 74%;
+  height: 74%;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b9d9ce;
+  border-radius: 18px;
+  background: #f4fffb;
+  color: #84aa9e;
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+.limit-break-aura {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  transform: translate(-50%,-50%) scale(.5);
+  opacity: 0;
+  background: radial-gradient(circle,
+    rgba(255,244,176,.9) 0%,
+    rgba(255,211,75,.38) 35%,
+    rgba(255,189,65,.1) 58%,
+    transparent 72%);
+  filter: blur(3px);
+}
+
+.limit-break-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(241,186,51,.6);
+  border-radius: 50%;
+  transform: translate(-50%,-50%) scale(.25);
+  opacity: 0;
+}
+
+.limit-break-ring.ring-b {
+  width: 84px;
+  height: 84px;
+  border-style: dashed;
+  border-color: rgba(77,211,169,.58);
+}
+
+.limit-break-shine {
+  position: absolute;
+  inset: -30% -70%;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(110deg,
+    transparent 38%,
+    rgba(255,255,255,.92) 48%,
+    rgba(255,229,128,.66) 52%,
+    transparent 62%);
+  transform: translateX(-65%) rotate(8deg);
+}
+
+.limit-break-spark-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.limit-break-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--lb-size);
+  height: var(--lb-size);
+  border-radius: 2px;
+  background: #ffd85f;
+  box-shadow: 0 0 10px rgba(255,207,70,.9);
+  opacity: 0;
+  transform: translate(-50%,-50%) scale(.2) rotate(0);
+}
+
+.limit-break-spark:nth-child(3n) {
+  border-radius: 50%;
+  background: #7be2bf;
+  box-shadow: 0 0 11px rgba(83,216,173,.8);
+}
+
+.limit-break-spark:nth-child(4n) {
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255,255,255,.95);
+}
+
+.limit-break-spark.full {
+  background: linear-gradient(135deg,#ff76ac,#ffe46d,#69dfc1,#7eaeff,#c78cff);
+  box-shadow: 0 0 13px rgba(167,134,255,.8);
+}
+
+.limit-break-art-stage.play .limit-break-art {
+  animation: limitBreakArtReveal .82s cubic-bezier(.18,.88,.25,1.14) both;
+}
+
+.limit-break-art-stage.play .limit-break-aura {
+  animation: limitBreakAura 1.3s ease-out both;
+}
+
+.limit-break-art-stage.play .ring-a {
+  animation: limitBreakRing 1s ease-out .05s both;
+}
+
+.limit-break-art-stage.play .ring-b {
+  animation: limitBreakRing 1.05s ease-out .16s both reverse;
+}
+
+.limit-break-art-stage.play .limit-break-shine {
+  animation: limitBreakShine 1.15s ease .28s both;
+}
+
+.limit-break-art-stage.play .limit-break-spark {
+  animation: limitBreakSpark 1s cubic-bezier(.17,.75,.25,1) var(--lb-delay) both;
+}
+
+.limit-break-art-stage.full {
+  border-color: #edc8f7;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,118,174,.13), transparent 38%),
+    radial-gradient(circle at 80% 26%, rgba(96,224,196,.13), transparent 40%),
+    radial-gradient(circle at 50% 72%, rgba(131,144,255,.12), transparent 42%),
+    #fff;
+}
+
+.limit-break-art-stage.full.play {
+  animation: limitBreakFullFrame 2.2s linear infinite alternate;
+}
+
+.limit-break-success-text {
+  margin: -5px 0 13px;
+  color: #42ad89;
+  font-size: 10px;
+  font-weight: 1000;
+  letter-spacing: .5px;
+}
+
+@keyframes exchangeCardSuccess {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.035); background: #eafff7; }
+  70% { transform: scale(.995); }
+  100% { transform: scale(1); }
+}
+@keyframes exchangeSuccessPop {
+  0% { opacity: 0; transform: translateY(18px) scale(.88); }
+  65% { opacity: 1; transform: translateY(-3px) scale(1.035); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes exchangeCheckPulse {
+  from { transform: scale(.98); box-shadow: 0 8px 24px rgba(50,198,151,.22); }
+  to { transform: scale(1.04); box-shadow: 0 11px 34px rgba(50,198,151,.36); }
+}
+@keyframes limitBreakArtReveal {
+  0% { opacity: 0; transform: scale(.82); filter: brightness(1.6) blur(4px); }
+  58% { opacity: 1; transform: scale(1.035); filter: brightness(1.18) blur(0); }
+  100% { opacity: 1; transform: scale(1); filter: none; }
+}
+@keyframes limitBreakAura {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.25); }
+  28% { opacity: .95; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(2.2); }
+}
+@keyframes limitBreakRing {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.22) rotate(0); }
+  25% { opacity: .9; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(3.35) rotate(120deg); }
+}
+@keyframes limitBreakShine {
+  0% { opacity: 0; transform: translateX(-65%) rotate(8deg); }
+  25% { opacity: .85; }
+  100% { opacity: 0; transform: translateX(65%) rotate(8deg); }
+}
+@keyframes limitBreakSpark {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.15) rotate(0); }
+  18% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--lb-x)), calc(-50% + var(--lb-y)))
+      scale(.15)
+      rotate(var(--lb-rot));
+  }
+}
+@keyframes limitBreakFullFrame {
+  from { box-shadow: inset 0 0 30px rgba(255,99,166,.08), 0 10px 30px rgba(102,206,175,.08); }
+  to { box-shadow: inset 0 0 38px rgba(116,132,255,.13), 0 12px 38px rgba(255,109,175,.13); }
+}
+
+@media (max-width: 520px) {
+  .limit-break-modal-v13 {
+    padding: 16px 14px 18px;
+  }
+
+  .limit-break-art-stage {
+    width: 100%;
+    height: min(49vh, 350px);
+    min-height: 245px;
+    border-radius: 18px;
+  }
+
+  .exchange-success-modal {
+    padding: 26px 18px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exchange-card.exchange-card-success,
+  .exchange-success-modal,
+  .exchange-success-check,
+  .limit-break-art-stage,
+  .limit-break-art,
+  .limit-break-aura,
+  .limit-break-ring,
+  .limit-break-shine,
+  .limit-break-spark {
+    animation-duration: .01ms !important;
+  }
+}
