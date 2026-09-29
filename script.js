@@ -55,6 +55,17 @@ let isAdmin = false;
 let publicDataLoaded = false;
 let tempHomeSelection = new Set();
 
+// V6 public/operation data
+let eventBanners = [];
+let rhythmSongs = [];
+let petTypes = [];
+let adminUsers = [];
+let activeBannerIndex = 0;
+let bannerSlideTimer = null;
+let petDialogueDrafts = {};
+let globalPointGrantV6 = null;
+let bannerMasterEnabledV6 = true;
+
 /* =========================================================
    유틸
 ========================================================= */
@@ -218,6 +229,9 @@ function renderEverything() {
   renderV5GameHub();
   renderPet();
   renderCasino();
+  renderV6HomeBanners();
+  renderRhythmSongSelector();
+  renderPetTypeSelection();
 }
 
 /* =========================================================
@@ -1304,6 +1318,7 @@ function renderAdmin() {
   document.getElementById("adminLimitedR").value = limitedSettings.r;
   document.getElementById("adminLimitedExchange").value = limitedSettings.exchangeLpt;
   renderAdminCharacterList();
+  renderV6AdminPanels();
 }
 
 document.getElementById("normalSettingsForm")?.addEventListener("submit", async (event) => {
@@ -3036,24 +3051,39 @@ async function startRhythmGame(){
   if(rhythmState.active)return;
   const diff=document.getElementById("rhythmDifficultySelect").value;
   const selectedId=document.getElementById("rhythmCharacterSelect").value||"";
-  saveData.gameRecords.rhythm.selectedCharacter=selectedId||null;saveGame();
-  rhythmState={active:true,paused:false,pausedAt:0,raf:0,startAt:0,duration:60000,notes:makeRhythmChart(diff),score:0,combo:0,maxCombo:0,hp:100,judgments:{perfect:0,great:0,good:0,miss:0},selectedId,difficulty:diff,lastJudge:"",audioCtx:null};
+  const songId=document.getElementById("rhythmSongSelect")?.value||"";
+  const song=rhythmSongs.find((item)=>item.id===songId)||null;
+  saveData.gameRecords.rhythm.selectedCharacter=selectedId||null;
+  saveData.gameRecords.rhythm.selectedSong=songId||null;
+  saveGame();
+
+  const customNotes=song?.charts?.[diff];
+  const notes=Array.isArray(customNotes)&&customNotes.length
+    ? customNotes.map((note)=>({time:Number(note.time)||0,lane:Number(note.lane)||0,judged:false}))
+    : makeRhythmChart(diff);
+  const duration=song?Math.max(5000,Number(song.duration||60)*1000):60000;
+  const audioElement=song?new Audio(song.audio_url):null;
+  if(audioElement){audioElement.preload="auto";audioElement.volume=1;try{await audioElement.play();audioElement.pause();audioElement.currentTime=0;}catch{}}
+
+  rhythmState={active:true,paused:false,pausedAt:0,raf:0,startAt:0,duration,notes,score:0,combo:0,maxCombo:0,hp:100,judgments:{perfect:0,great:0,good:0,miss:0},selectedId,difficulty:diff,lastJudge:"",audioCtx:null,audioElement,songId};
 
   document.getElementById("rhythmStartButton").disabled=true;
   document.getElementById("rhythmQuitButton").disabled=false;
-  setMessage("rhythmMessage","3초 후 시작!");
+  setMessage("rhythmMessage",song?`${song.title} · 3초 후 시작!`:"3초 후 시작!");
   const count=document.getElementById("rhythmCountdown");count.classList.remove("hidden");
   for(const n of [3,2,1]){count.textContent=n;await new Promise(r=>setTimeout(r,650));}
   count.textContent="START";await new Promise(r=>setTimeout(r,350));count.classList.add("hidden");
 
-  try{rhythmState.audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch{}
+  if(audioElement){try{audioElement.currentTime=0;await audioElement.play();}catch{setMessage("rhythmMessage","음원 재생이 차단됐어요. 게임은 계속 진행됩니다.","error");}}
+  else{try{rhythmState.audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch{}}
   rhythmState.startAt=performance.now();
   rhythmState.raf=requestAnimationFrame(rhythmLoop);
 }
 
-function rhythmTime(){return performance.now()-rhythmState.startAt+Number(saveData.gameRecords.rhythm.timingOffset||0);}
+function rhythmTime(){const offset=Number(saveData.gameRecords.rhythm.timingOffset||0);if(rhythmState.audioElement&&!rhythmState.audioElement.paused)return rhythmState.audioElement.currentTime*1000+offset;return performance.now()-rhythmState.startAt+offset;}
 
 function playRhythmTick(){
+  if(rhythmState.audioElement)return;
   const ac=rhythmState.audioCtx;if(!ac)return;
   const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=650;g.gain.value=.025;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.04);
 }
@@ -3110,6 +3140,7 @@ function finishRhythmGame(quit=false,gameOver=false){
   if(!rhythmState.active)return;
   rhythmState.active=false;cancelAnimationFrame(rhythmState.raf);
   try{rhythmState.audioCtx?.close();}catch{}
+  try{rhythmState.audioElement?.pause();if(rhythmState.audioElement)rhythmState.audioElement.currentTime=0;}catch{}
   const total=rhythmState.notes.length;
   const fullCombo=!gameOver&&!quit&&rhythmState.judgments.miss===0&&rhythmState.judgments.perfect+rhythmState.judgments.great+rhythmState.judgments.good===total;
   let base=0;if(!quit&&!gameOver){base=(["HARD","SPECIAL"].includes(rhythmState.difficulty)&&fullCombo)?2000:1000;}
@@ -3124,6 +3155,7 @@ function pauseRhythmForVisibility(){
   if(rhythmState.active&&!rhythmState.paused){
     rhythmState.paused=true;
     rhythmState.pausedAt=performance.now();
+    try{rhythmState.audioElement?.pause();}catch{}
     const btn=document.getElementById("rhythmStartButton");
     if(btn){btn.disabled=false;btn.textContent="계속하기";}
     setMessage("rhythmMessage","화면을 벗어나 자동 일시정지됐어요. 계속하기를 눌러 재개하세요.");
@@ -3135,6 +3167,7 @@ document.getElementById("rhythmStartButton")?.addEventListener("click",()=>{
     rhythmState.startAt += performance.now()-(rhythmState.pausedAt||performance.now());
     rhythmState.paused=false;
     rhythmState.pausedAt=0;
+    try{rhythmState.audioElement?.play();}catch{}
     const btn=document.getElementById("rhythmStartButton");
     if(btn){btn.disabled=true;btn.textContent="게임 시작";}
     setMessage("rhythmMessage","계속합니다.");
@@ -3198,14 +3231,14 @@ function humanCooldown(ms){
 }
 function petDialogueForState(){
   const p=saveData.pet;if(!p)return "";
-  if(p.dead)return `... ${p.deathReason||"알 수 없는 이유"}로 무지개다리를 건넜어요.`;
-  if(p.sick)return "몸이 좋지 않은 것 같아...";
-  if(p.hunger>=75&&p.dirt>=70)return "배도 고프고 씻고 싶어...";
-  if(p.hunger>=75)return "꼬르륵... 배고파!";
-  if(p.dirt>=70)return "꼬질꼬질해졌어...";
-  if(p.mood<=30)return "조금 외로운 것 같아.";
-  if(p.mood>=75&&p.hunger<50&&p.dirt<50)return "오늘도 같이 놀자!";
-  return "민트가 당신을 바라보고 있어요.";
+  if(p.dead)return petDialogueV6("death", `... ${p.deathReason||"알 수 없는 이유"}로 무지개다리를 건넜어요.`);
+  if(p.sick)return petDialogueV6("sick", "몸이 좋지 않은 것 같아...");
+  if(p.hunger>=75&&p.dirt>=70)return petDialogueV6("both", "배도 고프고 씻고 싶어...");
+  if(p.hunger>=75)return petDialogueV6("hunger", "꼬르륵... 배고파!");
+  if(p.dirt>=70)return petDialogueV6("dirty", "꼬질꼬질해졌어...");
+  if(p.mood<=30)return petDialogueV6("sad", "조금 외로운 것 같아.");
+  if(p.mood>=75&&p.hunger<50&&p.dirt<50)return petDialogueV6("happy", "오늘도 같이 놀자!");
+  return petDialogueV6("idle", `${p.name||"펫"}이 당신을 바라보고 있어요.`);
 }
 
 function renderPet(){
@@ -3215,12 +3248,13 @@ function renderPet(){
   if(!p){
     selectPanel?.classList.remove("hidden");main?.classList.add("hidden");
     document.getElementById("petStagePill").textContent="알";
+    renderPetTypeSelection();
     renderPetArchive();return;
   }
   selectPanel?.classList.add("hidden");main?.classList.remove("hidden");
   const stage=petStage(p),max=stage.name==="성인"?6800:(stage.name==="알"?300:stage.name==="아기"?1800:6800);
   document.getElementById("petStagePill").textContent=p.dead?"사망":stage.name;
-  document.getElementById("petVisualEmoji").textContent=p.dead?"🪦":p.dirt>=70?"🧼":p.mood<=30?"🥺":stage.emoji;
+  renderPetVisualV6(p, stage);
   document.getElementById("petName").textContent=p.name;
   document.getElementById("petDialogue").textContent=petDialogueForState();
   document.getElementById("petDaysText").textContent=`함께한 지 ${petDays(p)}일`;
@@ -3266,7 +3300,7 @@ function addPetExp(amount){
   }
 }
 
-document.getElementById("chooseDefaultPetButton")?.addEventListener("click",()=>{saveData.pet=createDefaultPet();saveGame();renderPet();});
+document.getElementById("chooseDefaultPetButton")?.addEventListener("click",()=>{const type=petTypes[0];saveData.pet=type?createPetFromTypeV6(type):createDefaultPet();saveGame();renderPet();});
 document.getElementById("petChangeButton")?.addEventListener("click",()=>{
   if(!saveData.pet)return;
   if(!confirm("현재 육성 중인 기록이 사라져요. 새 알로 다시 시작할까요?"))return;
@@ -3276,7 +3310,7 @@ document.getElementById("petChangeButton")?.addEventListener("click",()=>{
 document.getElementById("petVisual")?.addEventListener("click",(event)=>{
   const p=saveData.pet;if(!p||p.dead)return;
   const rect=event.currentTarget.getBoundingClientRect(),ratio=(event.clientY-rect.top)/rect.height;
-  document.getElementById("petDialogue").textContent=ratio<.35?"머리를 쓰다듬어주니 기분 좋아 보여!":ratio<.60?"눈이 마주쳤다!":"몸을 톡톡 건드리니 꼬물거린다.";
+  document.getElementById("petDialogue").textContent=ratio<.35?petDialogueV6("touch_head","머리를 쓰다듬어주니 기분 좋아 보여!"):ratio<.60?petDialogueV6("touch_face","눈이 마주쳤다!"):petDialogueV6("touch_body","몸을 톡톡 건드리니 꼬물거린다.");
 });
 
 document.querySelectorAll("[data-pet-action]").forEach((button)=>button.addEventListener("click",()=>{
@@ -3291,12 +3325,12 @@ document.querySelectorAll("[data-pet-action]").forEach((button)=>button.addEvent
     const char=rCards[Number(pick)-1];if(!char)return;
     saveData.characters[char.id]=getOwnedCount(char.id)-1;
     p.affection=Math.min(100,p.affection+10);p.mood=Math.min(100,p.mood+5);
-    document.getElementById("petDialogue").textContent=`${char.name} 선물 고마워!`;
+    document.getElementById("petDialogue").textContent=petDialogueV6("gift", `${char.name} 선물 고마워!`);
   }
 
-  if(action==="feed"){if(p.hunger<10)return;p.hunger=Math.max(0,p.hunger-30);document.getElementById("petDialogue").textContent="냠냠! 맛있어!";}
-  if(action==="wash"){p.dirt=0;document.getElementById("petDialogue").textContent="깨끗해졌어!";}
-  if(action==="play"){p.affection=Math.min(100,p.affection+5);p.mood=Math.min(100,p.mood+25);p.lastPlay=now;document.getElementById("petDialogue").textContent="더 놀자!";}
+  if(action==="feed"){if(p.hunger<10)return;p.hunger=Math.max(0,p.hunger-30);document.getElementById("petDialogue").textContent=petDialogueV6("feed", "냠냠! 맛있어!");}
+  if(action==="wash"){p.dirt=0;document.getElementById("petDialogue").textContent=petDialogueV6("wash", "깨끗해졌어!");}
+  if(action==="play"){p.affection=Math.min(100,p.affection+5);p.mood=Math.min(100,p.mood+25);p.lastPlay=now;document.getElementById("petDialogue").textContent=petDialogueV6("play", "더 놀자!");}
   if(action==="walk"){
     p.affection=Math.min(100,p.affection+8);p.mood=Math.min(100,p.mood+35);p.lastWalk=now;
     const roll=Math.random();
@@ -3307,7 +3341,7 @@ document.querySelectorAll("[data-pet-action]").forEach((button)=>button.addEvent
       else document.getElementById("petDialogue").textContent="산책은 즐거웠어!";
     }else if(roll<.62){
       const reward=50+Math.floor(Math.random()*651);addPoints(reward);document.getElementById("petDialogue").textContent=`산책 중 ${reward}P를 발견했어!`;
-    }else document.getElementById("petDialogue").textContent="산책 다녀왔어!";
+    }else document.getElementById("petDialogue").textContent=petDialogueV6("walk", "산책 다녀왔어!");
   }
 
   p.actionAt[action]=now;p.lastCare=now;p.sick=false;addPetExp(PET_ACTION_EXP[action]);saveGame();renderEverything();
@@ -3548,6 +3582,173 @@ function settleDerby(){
 document.getElementById("derbyStartButton")?.addEventListener("click",startDerby);
 document.querySelectorAll("[data-derby-bet]").forEach((button)=>button.addEventListener("click",()=>{document.getElementById("derbyBetInput").value=button.dataset.derbyBet;}));
 
+
+
+/* =========================================================
+   V6 운영 / 공개 콘텐츠
+========================================================= */
+
+async function loadV6PublicData(){
+  if(!supabaseClient)return;
+  try{
+    const [bannerRes,songRes,petRes,opsSettingRes]=await Promise.all([
+      supabaseClient.from("event_banners").select("*").order("sort_order",{ascending:true}).order("created_at",{ascending:true}),
+      supabaseClient.from("rhythm_songs").select("*").order("created_at",{ascending:false}),
+      supabaseClient.from("pet_types").select("*").order("sort_order",{ascending:true}).order("created_at",{ascending:true}),
+      supabaseClient.from("site_settings").select("key,value").in("key",["global_point_grant","banner_master"])
+    ]);
+    if(!bannerRes.error)eventBanners=(bannerRes.data||[]).filter((b)=>b.enabled||isAdmin);
+    if(!songRes.error)rhythmSongs=(songRes.data||[]).filter((s)=>s.is_public||isAdmin);
+    if(!petRes.error)petTypes=(petRes.data||[]).filter((p)=>p.is_public||isAdmin);
+    if(!opsSettingRes.error){for(const row of (opsSettingRes.data||[])){if(row.key==="global_point_grant")globalPointGrantV6=row.value||null;if(row.key==="banner_master")bannerMasterEnabledV6=row.value?.enabled!==false;}}
+    applyGlobalPointGrantV6();renderV6HomeBanners();renderRhythmSongSelector();renderPetTypeSelection();
+  }catch(error){console.warn("V6 공개 데이터 로드 실패",error);}
+}
+
+function addRemoteFontV6(banner){
+  if(!banner?.font_url||!banner?.font_family)return;
+  const id=`font-${String(banner.id).replaceAll(/[^a-zA-Z0-9_-]/g,"")}`;
+  if(document.getElementById(id))return;
+  const style=document.createElement("style");style.id=id;
+  style.textContent=`@font-face{font-family:'${String(banner.font_family).replaceAll("'","")}';src:url('${banner.font_url}');font-display:swap;}`;
+  document.head.appendChild(style);
+}
+
+function renderV6HomeBanners(){
+  const section=document.getElementById("homeEventBanner")?.closest(".home-section");if(section)section.style.display=bannerMasterEnabledV6?"":"none";if(!bannerMasterEnabledV6)return;
+  const active=eventBanners.filter((b)=>b.enabled).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const banner=document.getElementById("homeEventBanner"),wrap=document.getElementById("homeBannerTextWrap"),title=document.getElementById("homeBannerTitle"),text=document.getElementById("homeBannerText"),image=document.getElementById("homeBannerImage"),dots=document.getElementById("homeBannerDots"),prev=document.getElementById("homeBannerPrev"),next=document.getElementById("homeBannerNext");
+  if(!banner||!wrap||!title||!text||!image)return;
+  if(bannerSlideTimer){clearInterval(bannerSlideTimer);bannerSlideTimer=null;}
+  if(!active.length){
+    banner.classList.remove("custom-banner");wrap.classList.remove("banner-pulse");wrap.removeAttribute("style");banner.style.backgroundImage="";title.style="";text.style="";image.style="";
+    if(dots)dots.innerHTML="";prev?.classList.add("hidden");next?.classList.add("hidden");
+    renderHomeBanner();return;
+  }
+  activeBannerIndex=((activeBannerIndex%active.length)+active.length)%active.length;
+  const b=active[activeBannerIndex];addRemoteFontV6(b);
+  banner.classList.add("custom-banner");banner.style.backgroundImage=b.image_url?`url('${b.image_url}')`:"linear-gradient(135deg,#c9f7e8,#f8fffc)";
+  wrap.style.left=`${Number(b.x_pct??25)}%`;wrap.style.top=`${Number(b.y_pct??50)}%`;wrap.classList.toggle("banner-pulse",Boolean(b.pulse));
+  title.textContent=b.text||"이벤트";title.style.fontSize=`${Number(b.font_size||32)}px`;title.style.color=b.neon_color||"#35c597";title.style.textShadow=`0 0 12px ${b.neon_color||"#35c597"}55`;title.style.fontFamily=b.font_family?`'${b.font_family}', sans-serif`:"";
+  text.textContent="배너를 눌러 가챠로 이동하세요.";text.style.fontFamily=title.style.fontFamily;image.innerHTML="";
+  if(dots)dots.innerHTML=active.map((_,i)=>`<button class="banner-dot ${i===activeBannerIndex?"active":""}" data-banner-dot="${i}" aria-label="배너 ${i+1}"></button>`).join("");
+  dots?.querySelectorAll("[data-banner-dot]").forEach((el)=>el.addEventListener("click",()=>{activeBannerIndex=Number(el.dataset.bannerDot)||0;renderV6HomeBanners();}));
+  const multi=active.length>1;prev?.classList.toggle("hidden",!multi);next?.classList.toggle("hidden",!multi);
+  if(multi)bannerSlideTimer=setInterval(()=>{activeBannerIndex=(activeBannerIndex+1)%active.length;renderV6HomeBanners();},5000);
+}
+
+document.getElementById("homeBannerPrev")?.addEventListener("click",(e)=>{e.stopPropagation();const n=eventBanners.filter((b)=>b.enabled).length;if(n){activeBannerIndex=(activeBannerIndex-1+n)%n;renderV6HomeBanners();}});
+document.getElementById("homeBannerNext")?.addEventListener("click",(e)=>{e.stopPropagation();const n=eventBanners.filter((b)=>b.enabled).length;if(n){activeBannerIndex=(activeBannerIndex+1)%n;renderV6HomeBanners();}});
+document.getElementById("homeEventBanner")?.addEventListener("click",(e)=>{if(e.target.closest("button"))return;openPage("gacha");});
+
+function renderRhythmSongSelector(){
+  const select=document.getElementById("rhythmSongSelect");if(!select)return;
+  const current=select.value||saveData.gameRecords.rhythm?.selectedSong||"";
+  select.innerHTML=`<option value="">기본 비트 60초</option>`+rhythmSongs.filter((s)=>s.is_public).map((s)=>`<option value="${s.id}">${escapeHTML(s.title)} · ${escapeHTML(s.artist)}</option>`).join("");
+  if(rhythmSongs.some((s)=>s.id===current))select.value=current;
+  select.disabled=Boolean(rhythmState.active);
+}
+document.getElementById("rhythmSongSelect")?.addEventListener("change",(e)=>{if(rhythmState.active)return;saveData.gameRecords.rhythm.selectedSong=e.target.value||null;saveGame();});
+
+function getPetTypeV6(pet=saveData.pet){return petTypes.find((t)=>t.id===pet?.typeId||t.id===pet?.id)||null;}
+function randomPetLineV6(type,key,fallback){const list=type?.dialogues?.[key];return Array.isArray(list)&&list.length?randomChoice(list):fallback;}
+function petDialogueV6(key,fallback){return randomPetLineV6(getPetTypeV6(),key,fallback);}
+function createPetFromTypeV6(type){const now=Date.now();return{id:type.id,typeId:type.id,name:type.name,exp:0,affection:0,mood:80,hunger:0,dirt:0,bornAt:now,lastCare:now,lastPlay:now,lastWalk:now,lastUpdate:now,actionAt:{},sick:false,dead:false,deathReason:null,completed:false};}
+function petImageKeyV6(p,stage){if(p.dead)return"grave";const prefix=stage.name==="알"?"egg":stage.name==="아기"?"baby":stage.name==="어린이"?"child":"adult";if(p.dirt>=70)return`${prefix}_dirty`;if(p.mood<=30)return`${prefix}_sad`;if(p.mood>=75&&p.hunger<50&&p.dirt<50)return`${prefix}_happy`;return`${prefix}_base`;}
+function renderPetVisualV6(p,stage){const el=document.getElementById("petVisualEmoji");if(!el)return;const type=getPetTypeV6(p),images=type?.images||{},key=petImageKeyV6(p,stage);const base=stage.name==="알"?"egg_base":stage.name==="아기"?"baby_base":stage.name==="어린이"?"child_base":"adult_base";const url=images[key]||images[base]||(p.dead?images.grave:"");if(url)el.innerHTML=`<img src="${escapeHTML(url)}" alt="${escapeHTML(type?.name||p.name||"펫")}">`;else el.textContent=p.dead?"🪦":p.dirt>=70?"🧼":p.mood<=30?"🥺":stage.emoji;}
+function renderPetTypeSelection(){const grid=document.getElementById("petTypeGrid");if(!grid||saveData.pet)return;const list=petTypes.filter((p)=>p.is_public);grid.innerHTML=list.length?list.map((type)=>{const image=type.images?.egg_base;return`<div class="pet-type-card"><div class="pet-type-art">${image?`<img src="${escapeHTML(image)}" alt="${escapeHTML(type.name)}">`:"🥚"}</div><h4>${escapeHTML(type.name)}</h4><p>${escapeHTML(type.description||"")}</p><button type="button" data-pet-type-select="${type.id}">이 알 선택</button></div>`;}).join(""):`<div class="card">현재 공개된 펫 알이 없어요.</div>`;grid.querySelectorAll("[data-pet-type-select]").forEach((button)=>button.addEventListener("click",()=>{const type=petTypes.find((p)=>p.id===button.dataset.petTypeSelect);if(!type)return;saveData.pet=createPetFromTypeV6(type);saveGame();renderPet();}));}
+
+function applyGlobalPointGrantV6(){
+  const g=globalPointGrantV6;if(!g?.id||!Number.isSafeInteger(Math.floor(Number(g.amount)))||Number(g.amount)<=0)return;
+  if(saveData.lastGlobalGrantId===g.id)return;
+  saveData.lastGlobalGrantId=g.id;
+  const amount=Math.floor(Number(g.amount));
+  const next=saveData.points+amount;if(!Number.isSafeInteger(next))return;
+  saveData.points=next;saveGame();updatePointDisplays();
+}
+
+document.getElementById("adminSelfPointButton")?.addEventListener("click",()=>{const amount=Math.floor(Number(document.getElementById("adminSelfPointInput")?.value)||0);if(amount>0&&addPoints(amount))alert(`${formatPoints(amount)}P를 현재 관리자 세이브에 추가했어요.`);});
+document.getElementById("adminGlobalPointButton")?.addEventListener("click",async()=>{if(!isAdmin)return;const amount=Math.floor(Number(document.getElementById("adminGlobalPointInput")?.value)||0);if(!Number.isSafeInteger(amount)||amount<=0)return setMessage("adminGlobalPointMessage","1 이상의 정수를 입력해주세요.","error");if(!confirm(`전체 방문자에게 ${formatPoints(amount)}P 1회 지급 공지를 만들까요?`))return;const value={id:safeUUID(),amount,createdAt:new Date().toISOString()};const{error}=await supabaseClient.from("site_settings").upsert({key:"global_point_grant",value});if(error)return setMessage("adminGlobalPointMessage",error.message,"error");globalPointGrantV6=value;applyGlobalPointGrantV6();setMessage("adminGlobalPointMessage",`전체 지급 공지 생성 완료 · ${formatPoints(amount)}P`,`success`);});
+document.getElementById("bannerMasterInput")?.addEventListener("change",async(e)=>{if(!isAdmin)return;const enabled=e.target.checked;const{error}=await supabaseClient.from("site_settings").upsert({key:"banner_master",value:{enabled}});if(error){e.target.checked=!enabled;return alert(error.message);}bannerMasterEnabledV6=enabled;renderV6HomeBanners();});
+
+/* =========================================================
+   V6 계정 정지 / 관리자 작업 수령
+========================================================= */
+async function v6CheckAccountAndActions(){
+  if(!supabaseClient||!currentUser||!cloudReady)return;
+  try{
+    const statusRes=await supabaseClient.rpc("get_my_account_status");
+    if(!statusRes.error&&statusRes.data?.suspended){alert(`이 계정은 이용 정지 상태입니다.${statusRes.data.reason?`\n사유: ${statusRes.data.reason}`:""}`);await supabaseClient.auth.signOut();return;}
+    const actionRes=await supabaseClient.rpc("claim_admin_actions");if(actionRes.error)throw actionRes.error;
+    const actions=Array.isArray(actionRes.data)?actionRes.data:[];if(!actions.length)return;
+    for(const action of actions){const p=action.payload||{};if(action.action_type==="point_delta"){const amount=Math.floor(Number(p.amount)||0);const next=saveData.points+amount;if(Number.isSafeInteger(next)&&next>=0)saveData.points=next;}else if(action.action_type==="point_set"){const amount=Math.floor(Number(p.amount)||0);if(Number.isSafeInteger(amount)&&amount>=0)saveData.points=amount;}else if(action.action_type==="character_grant"){const id=String(p.character_id||"");const qty=Math.max(1,Math.min(100,Math.floor(Number(p.quantity)||1)));if(id&&characters.some((c)=>c.id===id))saveData.characters[id]=getOwnedCount(id)+qty;}else if(action.action_type==="save_reset"){saveData=deepClone(DEFAULT_SAVE);}}
+    saveLocalOnly();renderEverything();await saveCloudNow("관리자 지급/변경 반영");
+  }catch(error){console.warn("관리자 작업 확인 실패",error);}
+}
+window.addEventListener("focus",()=>{void v6CheckAccountAndActions();});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)void v6CheckAccountAndActions();});
+setInterval(()=>{void v6CheckAccountAndActions();},60000);
+setTimeout(()=>{void v6CheckAccountAndActions();},2500);
+
+/* =========================================================
+   V6 관리자 유저 관리
+========================================================= */
+async function loadAdminUsersV6(){if(!isAdmin||!supabaseClient)return;setMessage("adminUserMessage","불러오는 중...");const{data,error}=await supabaseClient.rpc("admin_list_users");if(error){setMessage("adminUserMessage",error.message,"error");return;}adminUsers=Array.isArray(data)?data:[];setMessage("adminUserMessage",`${adminUsers.length}명 불러옴.`,`success`);renderAdminUsersV6();}
+function userTs(v){return v?new Date(v).getTime():0;}
+function renderAdminUsersV6(){const list=document.getElementById("adminUserList");if(!list)return;const q=(document.getElementById("adminUserSearch")?.value||"").trim().toLowerCase(),sort=document.getElementById("adminUserSort")?.value||"created_desc";let rows=adminUsers.filter((u)=>!q||String(u.email||"").toLowerCase().includes(q)||String(u.user_id||"").toLowerCase().includes(q));rows.sort((a,b)=>sort==="created_asc"?userTs(a.created_at)-userTs(b.created_at):sort==="login_desc"?userTs(b.last_sign_in_at)-userTs(a.last_sign_in_at):sort==="points_desc"?Number(b.points||0)-Number(a.points||0):userTs(b.created_at)-userTs(a.created_at));
+  document.getElementById("adminStatTotal").textContent=adminUsers.length;document.getElementById("adminStatActive").textContent=adminUsers.filter((u)=>Date.now()-userTs(u.last_sign_in_at)<=7*86400000).length;document.getElementById("adminStatSuspended").textContent=adminUsers.filter((u)=>u.suspended).length;document.getElementById("adminStatNoSave").textContent=adminUsers.filter((u)=>!u.has_save).length;
+  list.innerHTML=rows.length?rows.map((u)=>`<div class="admin-user-row"><div class="admin-user-main"><strong>${escapeHTML(u.email||"이메일 없음")}</strong><small>UID ${escapeHTML(u.user_id)}</small><span class="status-chip ${u.suspended?"suspended":!u.has_save?"nosave":""}">${u.suspended?"이용 정지":!u.has_save?"세이브 없음":"정상"}</span></div><div class="admin-user-meta"><div><small>포인트</small><b>${formatPoints(u.points||0)}P</b></div><div><small>캐릭터 종류</small><b>${u.character_count||0}</b></div><div><small>대기 작업</small><b>${u.pending_actions||0}</b></div><div><small>펫</small><b>${escapeHTML(u.pet_name||"-")}</b></div><small>가입 ${u.created_at?new Date(u.created_at).toLocaleDateString("ko-KR"):"-"}</small><small>최근 로그인 ${u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString("ko-KR"):"-"}</small></div><div class="admin-user-actions"><button data-user-action="pointAdd" data-uid="${u.user_id}">포인트 지급</button><button data-user-action="pointSub" data-uid="${u.user_id}">차감</button><button data-user-action="pointSet" data-uid="${u.user_id}">잔액 설정</button><button data-user-action="charGrant" data-uid="${u.user_id}">캐릭터 지급</button><button class="warn" data-user-action="reset" data-uid="${u.user_id}">세이브 초기화</button><button class="${u.suspended?"":"warn"}" data-user-action="suspend" data-uid="${u.user_id}">${u.suspended?"정지 해제":"이용 정지"}</button><button class="danger" data-user-action="delete" data-uid="${u.user_id}">계정 삭제</button></div></div>`).join(""):`<div class="card">조건에 맞는 유저가 없어요.</div>`;
+  list.querySelectorAll("[data-user-action]").forEach((button)=>button.addEventListener("click",()=>handleAdminUserActionV6(button.dataset.uid,button.dataset.userAction)));
+}
+async function queueAdminActionV6(uid,kind,payload){const{error}=await supabaseClient.rpc("admin_queue_action",{target_user:uid,kind,data:payload});if(error)throw error;await loadAdminUsersV6();}
+async function handleAdminUserActionV6(uid,action){const user=adminUsers.find((u)=>u.user_id===uid);if(!user)return;try{if(action==="pointAdd"||action==="pointSub"||action==="pointSet"){const raw=prompt(action==="pointSet"?"설정할 포인트 잔액":"포인트 수량","100");if(raw===null)return;let amount=Math.floor(Number(raw));if(!Number.isSafeInteger(amount)||amount<0)return alert("0 이상의 정수를 입력해주세요.");if(action==="pointSub")amount=-amount;await queueAdminActionV6(uid,action==="pointSet"?"point_set":"point_delta",{amount});alert("대기 작업으로 등록했어요. 유저가 사이트를 열거나 복귀하면 자동 반영됩니다.");}
+    else if(action==="charGrant"){const available=characters.map((c,i)=>`${i+1}. ${c.name} [${c.rarity}${c.is_limited?"/한정":""}]`).join("\n");const pick=prompt(`지급할 캐릭터 번호\n${available}`,"1");if(pick===null)return;const char=characters[Number(pick)-1];if(!char)return alert("올바른 번호를 선택해주세요.");const q=prompt("수량 1~100","1");if(q===null)return;const qty=Math.max(1,Math.min(100,Math.floor(Number(q)||1)));await queueAdminActionV6(uid,"character_grant",{character_id:char.id,quantity:qty});alert(`${char.name} ${qty}장 지급 대기 등록 완료.`);}
+    else if(action==="reset"){if(!confirm(`${user.email}의 클라우드 세이브를 초기 상태로 되돌리는 작업을 등록할까요?`))return;await queueAdminActionV6(uid,"save_reset",{});alert("세이브 초기화 대기 작업을 등록했어요.");}
+    else if(action==="suspend"){const next=!user.suspended;const reason=next?(prompt("이용 정지 사유 (선택)",user.suspend_reason||"")??""):null;const{error}=await supabaseClient.rpc("admin_set_suspended",{target_user:uid,new_state:next,new_reason:reason});if(error)throw error;await loadAdminUsersV6();}
+    else if(action==="delete"){const confirmText=prompt(`계정 완전 삭제입니다.\n확인을 위해 아래 이메일 또는 UID를 그대로 입력하세요.\n${user.email||uid}`);if(confirmText===null)return;if(!confirm("Auth 계정과 연결 데이터가 삭제됩니다. 정말 진행할까요?"))return;const{error}=await supabaseClient.rpc("admin_delete_user",{target_user:uid,confirm_text:confirmText});if(error)throw error;await loadAdminUsersV6();}
+  }catch(error){alert(error.message||"관리 작업에 실패했어요.");}}
+document.getElementById("adminRefreshUsersButton")?.addEventListener("click",()=>void loadAdminUsersV6());document.getElementById("adminUserSearch")?.addEventListener("input",renderAdminUsersV6);document.getElementById("adminUserSort")?.addEventListener("change",renderAdminUsersV6);
+
+/* =========================================================
+   V6 Storage helpers
+========================================================= */
+function fileExtV6(file){return (file.name.split(".").pop()||"bin").replace(/[^a-z0-9]/gi,"").toLowerCase();}
+async function uploadPublicFileV6(bucket,file,prefix){if(!file)return null;const path=`${prefix}/${safeUUID()}.${fileExtV6(file)}`;const{error}=await supabaseClient.storage.from(bucket).upload(path,file,{cacheControl:"3600",upsert:false});if(error)throw error;return supabaseClient.storage.from(bucket).getPublicUrl(path).data.publicUrl;}
+async function deleteStorageUrlV6(bucket,url){if(!url)return;try{const marker=`/${bucket}/`;const idx=url.indexOf(marker);if(idx<0)return;const path=decodeURIComponent(url.slice(idx+marker.length));await supabaseClient.storage.from(bucket).remove([path]);}catch{}}
+
+/* =========================================================
+   V6 배너 관리자
+========================================================= */
+function resetBannerFormV6(){document.getElementById("bannerForm")?.reset();document.getElementById("bannerEditId").value="";document.getElementById("bannerFontSizeInput").value=32;document.getElementById("bannerXInput").value=25;document.getElementById("bannerYInput").value=50;document.getElementById("bannerColorInput").value="#35c597";document.getElementById("bannerEnabledInput").checked=true;document.getElementById("cancelBannerEditButton")?.classList.add("hidden");setMessage("bannerFormMessage","");}
+function renderAdminBannerListV6(){const el=document.getElementById("adminBannerList");if(!el||!isAdmin)return;el.innerHTML=eventBanners.length?eventBanners.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map((b)=>`<div class="ops-list-row"><div class="ops-list-thumb">${b.image_url?`<img src="${escapeHTML(b.image_url)}">`:"BANNER"}</div><div class="ops-list-info"><strong>${escapeHTML(b.text||"문구 없음")}</strong><small>${b.enabled?"표시 중":"숨김"} · ${b.font_size}px · 위치 ${b.x_pct},${b.y_pct} · 순서 ${b.sort_order}</small></div><div class="ops-list-actions"><button data-banner-edit="${b.id}">수정</button><button class="danger" data-banner-delete="${b.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 배너가 없어요.</div>`;el.querySelectorAll("[data-banner-edit]").forEach((button)=>button.addEventListener("click",()=>editBannerV6(button.dataset.bannerEdit)));el.querySelectorAll("[data-banner-delete]").forEach((button)=>button.addEventListener("click",()=>void deleteBannerV6(button.dataset.bannerDelete)));}
+function editBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b)return;document.getElementById("bannerEditId").value=b.id;document.getElementById("bannerTextInput").value=b.text||"";document.getElementById("bannerFontSizeInput").value=b.font_size||32;document.getElementById("bannerXInput").value=b.x_pct??25;document.getElementById("bannerYInput").value=b.y_pct??50;document.getElementById("bannerColorInput").value=b.neon_color||"#35c597";document.getElementById("bannerSortInput").value=b.sort_order||0;document.getElementById("bannerPulseInput").checked=Boolean(b.pulse);document.getElementById("bannerEnabledInput").checked=Boolean(b.enabled);document.getElementById("cancelBannerEditButton")?.classList.remove("hidden");document.getElementById("bannerForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
+async function deleteBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b||!confirm("이 배너를 삭제할까요?"))return;const{error}=await supabaseClient.from("event_banners").delete().eq("id",id);if(error)return alert(error.message);await Promise.all([deleteStorageUrlV6("banner-assets",b.image_url),deleteStorageUrlV6("banner-assets",b.font_url)]);await loadV6PublicData();renderAdminBannerListV6();}
+document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;const id=document.getElementById("bannerEditId").value,existing=eventBanners.find((b)=>b.id===id);const imageFile=document.getElementById("bannerImageInput").files?.[0],fontFile=document.getElementById("bannerFontInput").files?.[0];if(imageFile&&imageFile.size>10*1024*1024)return setMessage("bannerFormMessage","이미지는 10MB 이하만 가능해요.","error");if(fontFile&&fontFile.size>10*1024*1024)return setMessage("bannerFormMessage","폰트는 10MB 이하만 가능해요.","error");try{setMessage("bannerFormMessage","업로드/저장 중...");const imageUrl=imageFile?await uploadPublicFileV6("banner-assets",imageFile,"images"):existing?.image_url||null;const fontUrl=fontFile?await uploadPublicFileV6("banner-assets",fontFile,"fonts"):existing?.font_url||null;const fontFamily=fontFile?`MintBanner_${safeUUID().replaceAll("-","")}`:existing?.font_family||null;const payload={text:document.getElementById("bannerTextInput").value.trim(),font_size:Number(document.getElementById("bannerFontSizeInput").value)||32,x_pct:Number(document.getElementById("bannerXInput").value)||0,y_pct:Number(document.getElementById("bannerYInput").value)||0,neon_color:document.getElementById("bannerColorInput").value,pulse:document.getElementById("bannerPulseInput").checked,enabled:document.getElementById("bannerEnabledInput").checked,sort_order:Math.floor(Number(document.getElementById("bannerSortInput").value)||0),image_url:imageUrl,font_url:fontUrl,font_family:fontFamily};const res=id?await supabaseClient.from("event_banners").update(payload).eq("id",id):await supabaseClient.from("event_banners").insert(payload);if(res.error)throw res.error;if(existing&&imageFile)await deleteStorageUrlV6("banner-assets",existing.image_url);if(existing&&fontFile)await deleteStorageUrlV6("banner-assets",existing.font_url);resetBannerFormV6();await loadV6PublicData();renderAdminBannerListV6();setMessage("bannerFormMessage","저장 완료!","success");}catch(error){setMessage("bannerFormMessage",error.message,"error");}});document.getElementById("resetBannerFormButton")?.addEventListener("click",resetBannerFormV6);document.getElementById("cancelBannerEditButton")?.addEventListener("click",resetBannerFormV6);
+
+/* =========================================================
+   V6 리듬 음원 자동 분석 / 관리자
+========================================================= */
+async function analyzeRhythmAudioV6(file){const buf=await file.arrayBuffer();const ac=new (window.AudioContext||window.webkitAudioContext)();let audio;try{audio=await ac.decodeAudioData(buf.slice(0));}finally{try{await ac.close();}catch{}}const duration=audio.duration;if(duration<5||duration>600)throw new Error("음원 길이는 5초 이상 10분 이하여야 해요.");const ch=audio.getChannelData(0),sr=audio.sampleRate,windowSize=Math.max(256,Math.floor(sr*.025)),energies=[];for(let start=0;start<ch.length;start+=windowSize){let sum=0,end=Math.min(ch.length,start+windowSize);for(let i=start;i<end;i+=4)sum+=Math.abs(ch[i]);energies.push(sum/Math.max(1,Math.ceil((end-start)/4)));}const avg=energies.reduce((a,b)=>a+b,0)/Math.max(1,energies.length),peaks=[];let lastTime=-1;for(let i=1;i<energies.length-1;i++){const t=i*windowSize/sr;if(t<1.2||t>duration-.4)continue;const e=energies[i];if(e>avg*1.28&&e>=energies[i-1]&&e>=energies[i+1]&&t-lastTime>.12){peaks.push({t,e});lastTime=t;}}if(!peaks.length){for(let t=1.5;t<duration-.5;t+=.5)peaks.push({t,e:1});}const pick=(spacing,boost=false)=>{const notes=[];let last=-99;peaks.forEach((p,i)=>{if(p.t-last<spacing)return;notes.push({time:Math.round(p.t*1000),lane:(i+Math.floor(p.e*1000))%4});last=p.t;if(boost&&notes.length<2499&&i>0&&Math.random()<.25){const extra=p.t+spacing*.45;if(extra<duration-.3)notes.push({time:Math.round(extra*1000),lane:(i+2)%4});}});return notes.slice(0,2500).sort((a,b)=>a.time-b.time);};return{duration,charts:{EASY:pick(.75),NORMAL:pick(.38),HARD:pick(.26),SPECIAL:pick(.18,true)}};}
+function renderAdminRhythmSongsV6(){const el=document.getElementById("adminRhythmSongList");if(!el||!isAdmin)return;el.innerHTML=rhythmSongs.length?rhythmSongs.map((s)=>`<div class="ops-list-row"><div class="ops-list-thumb">🎵</div><div class="ops-list-info"><strong>${escapeHTML(s.title)} · ${escapeHTML(s.artist)}</strong><small>${Number(s.duration||0).toFixed(1)}초 · E ${s.charts?.EASY?.length||0} / N ${s.charts?.NORMAL?.length||0} / H ${s.charts?.HARD?.length||0} / S ${s.charts?.SPECIAL?.length||0}</small></div><div class="ops-list-actions"><button class="danger" data-song-delete="${s.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 노래가 없어요.</div>`;el.querySelectorAll("[data-song-delete]").forEach((b)=>b.addEventListener("click",()=>void deleteRhythmSongV6(b.dataset.songDelete)));}
+async function deleteRhythmSongV6(id){const s=rhythmSongs.find((x)=>x.id===id);if(!s||!confirm(`${s.title}을 삭제할까요?`))return;const{error}=await supabaseClient.from("rhythm_songs").delete().eq("id",id);if(error)return alert(error.message);await deleteStorageUrlV6("rhythm-audio",s.audio_url);await loadV6PublicData();renderAdminRhythmSongsV6();}
+document.getElementById("rhythmSongForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;const file=document.getElementById("rhythmSongFileInput").files?.[0];if(!file)return;if(file.size>20*1024*1024)return setMessage("rhythmSongMessage","20MB 이하 파일만 가능해요.","error");try{setMessage("rhythmSongMessage","음원을 분석하고 있어요. 파일이 길면 잠시 걸릴 수 있어요...");const analyzed=await analyzeRhythmAudioV6(file);setMessage("rhythmSongMessage","업로드 중...");const audioUrl=await uploadPublicFileV6("rhythm-audio",file,"songs");const{error}=await supabaseClient.from("rhythm_songs").insert({title:document.getElementById("rhythmSongTitleInput").value.trim(),artist:document.getElementById("rhythmSongArtistInput").value.trim(),audio_url:audioUrl,duration:analyzed.duration,charts:analyzed.charts,is_public:true});if(error){await deleteStorageUrlV6("rhythm-audio",audioUrl);throw error;}e.currentTarget.reset();await loadV6PublicData();renderAdminRhythmSongsV6();setMessage("rhythmSongMessage","노래 등록과 4난이도 자동 채보 생성 완료!","success");}catch(error){setMessage("rhythmSongMessage",error.message,"error");}});
+
+/* =========================================================
+   V6 펫 타입 관리자
+========================================================= */
+const PET_DIALOGUE_KEYS=["feed","wash","play","walk","gift","hatch","grow","hunger","dirty","both","sick","want_play","want_walk","neglected","sad","recover","death","touch_head","touch_face","touch_body"];
+function commitPetDialogueDraftV6(){const key=document.getElementById("petDialogueTypeSelect")?.dataset.currentKey||document.getElementById("petDialogueTypeSelect")?.value;if(!key)return;petDialogueDrafts[key]=(document.getElementById("petDialogueTextarea")?.value||"").split("\n").map((x)=>x.trim()).filter(Boolean);}
+function loadPetDialogueTextareaV6(){const select=document.getElementById("petDialogueTypeSelect"),area=document.getElementById("petDialogueTextarea");if(!select||!area)return;select.dataset.currentKey=select.value;area.value=(petDialogueDrafts[select.value]||[]).join("\n");}
+document.getElementById("petDialogueTypeSelect")?.addEventListener("change",(e)=>{const prev=e.currentTarget.dataset.currentKey;if(prev)petDialogueDrafts[prev]=(document.getElementById("petDialogueTextarea")?.value||"").split("\n").map((x)=>x.trim()).filter(Boolean);loadPetDialogueTextareaV6();});
+function resetPetTypeFormV6(){document.getElementById("petTypeForm")?.reset();document.getElementById("petTypeEditId").value="";document.getElementById("petTypePublicInput").checked=true;petDialogueDrafts={};loadPetDialogueTextareaV6();document.getElementById("cancelPetTypeEditButton")?.classList.add("hidden");setMessage("petTypeMessage","");}
+function renderAdminPetTypesV6(){const el=document.getElementById("adminPetTypeList");if(!el||!isAdmin)return;el.innerHTML=petTypes.length?petTypes.map((p)=>`<div class="ops-list-row"><div class="ops-list-thumb">${p.images?.egg_base?`<img src="${escapeHTML(p.images.egg_base)}">`:"🥚"}</div><div class="ops-list-info"><strong>${escapeHTML(p.name)}</strong><small>${p.is_public?"공개":"비공개"} · 순서 ${p.sort_order||0}</small></div><div class="ops-list-actions"><button data-pet-edit="${p.id}">수정</button><button class="danger" data-pet-delete="${p.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 펫이 없어요.</div>`;el.querySelectorAll("[data-pet-edit]").forEach((b)=>b.addEventListener("click",()=>editPetTypeV6(b.dataset.petEdit)));el.querySelectorAll("[data-pet-delete]").forEach((b)=>b.addEventListener("click",()=>void deletePetTypeV6(b.dataset.petDelete)));}
+function editPetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p)return;document.getElementById("petTypeEditId").value=p.id;document.getElementById("petTypeNameInput").value=p.name||"";document.getElementById("petTypeDescriptionInput").value=p.description||"";document.getElementById("petTypeSortInput").value=p.sort_order||0;document.getElementById("petTypePublicInput").checked=Boolean(p.is_public);petDialogueDrafts=deepClone(p.dialogues||{});loadPetDialogueTextareaV6();document.getElementById("cancelPetTypeEditButton")?.classList.remove("hidden");document.getElementById("petTypeForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
+async function deletePetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p||!confirm("이 펫 종류를 삭제할까요? 기존 사용자의 해당 펫이 정상 표시되지 않을 수 있어요."))return;const{error}=await supabaseClient.from("pet_types").delete().eq("id",id);if(error)return alert(error.message);await Promise.all(Object.values(p.images||{}).map((url)=>deleteStorageUrlV6("pet-assets",url)));await loadV6PublicData();renderAdminPetTypesV6();}
+document.getElementById("petTypeForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;commitPetDialogueDraftV6();const id=document.getElementById("petTypeEditId").value,existing=petTypes.find((p)=>p.id===id);try{setMessage("petTypeMessage","이미지 업로드/저장 중...");const images={...(existing?.images||{})};for(const input of document.querySelectorAll("[data-pet-image-key]")){const file=input.files?.[0];if(!file)continue;if(file.size>10*1024*1024)throw new Error("펫 이미지는 각 10MB 이하만 가능해요.");const key=input.dataset.petImageKey,newUrl=await uploadPublicFileV6("pet-assets",file,`pets/${id||"new"}`);if(images[key])await deleteStorageUrlV6("pet-assets",images[key]);images[key]=newUrl;}if(!existing&&(!images.egg_base||!images.baby_base||!images.child_base||!images.adult_base))throw new Error("새 펫은 알/아기/어린이/성인 기본 이미지 4장이 필수예요.");const payload={name:document.getElementById("petTypeNameInput").value.trim(),description:document.getElementById("petTypeDescriptionInput").value.trim(),is_public:document.getElementById("petTypePublicInput").checked,sort_order:Math.floor(Number(document.getElementById("petTypeSortInput").value)||0),images,dialogues:petDialogueDrafts};const res=id?await supabaseClient.from("pet_types").update(payload).eq("id",id):await supabaseClient.from("pet_types").insert(payload);if(res.error)throw res.error;resetPetTypeFormV6();await loadV6PublicData();renderAdminPetTypesV6();setMessage("petTypeMessage","펫 저장 완료!","success");}catch(error){setMessage("petTypeMessage",error.message,"error");}});document.getElementById("resetPetTypeFormButton")?.addEventListener("click",resetPetTypeFormV6);document.getElementById("cancelPetTypeEditButton")?.addEventListener("click",resetPetTypeFormV6);
+
+function renderV6AdminPanels(){if(!isAdmin)return;const bm=document.getElementById("bannerMasterInput");if(bm)bm.checked=bannerMasterEnabledV6;renderAdminBannerListV6();renderAdminRhythmSongsV6();renderAdminPetTypesV6();if(!adminUsers.length)void loadAdminUsersV6();}
+
+
 /* =========================================================
    V5 시작 보조
 ========================================================= */
@@ -3583,6 +3784,7 @@ async function boot() {
 
   await Promise.all([
     loadPublicData(),
+    loadV6PublicData(),
     initAuth()
   ]);
 

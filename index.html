@@ -49,15 +49,13 @@
             <p class="section-label">EVENT</p>
             <h3>진행 중인 이벤트</h3>
           </div>
-          <div class="banner-dots">
-            <span class="banner-dot active"></span>
-            <span class="banner-dot"></span>
-            <span class="banner-dot"></span>
-          </div>
+          <div class="banner-dots" id="homeBannerDots"></div>
         </div>
 
-        <div class="event-banner">
-          <div class="event-banner-text">
+        <div class="event-banner" id="homeEventBanner">
+          <button class="banner-arrow banner-prev hidden" id="homeBannerPrev" type="button" aria-label="이전 배너">‹</button>
+          <button class="banner-arrow banner-next hidden" id="homeBannerNext" type="button" aria-label="다음 배너">›</button>
+          <div class="event-banner-text" id="homeBannerTextWrap">
             <span class="event-badge">PICK UP</span>
             <h4 id="homeBannerTitle">새로운 한정 픽업!</h4>
             <p id="homeBannerText">현재 진행 중인 한정 캐릭터를 확인해보세요.</p>
@@ -462,6 +460,7 @@
 
         <div class="rhythm-setting-grid">
           <label><span>응원 캐릭터</span><select id="rhythmCharacterSelect"></select></label>
+          <label><span>노래</span><select id="rhythmSongSelect"><option value="">기본 비트 60초</option></select></label>
           <label><span>난이도</span>
             <select id="rhythmDifficultySelect">
               <option value="EASY">EASY</option>
@@ -516,8 +515,8 @@
       <section class="pet-empty-panel" id="petSelectPanel">
         <div class="pet-egg-icon">🥚</div>
         <h3>새 펫을 골라주세요</h3>
-        <p>한 번에 한 마리만 키울 수 있어요. 현재는 기본 민트 펫이 준비되어 있어요.</p>
-        <button class="mint-button" id="chooseDefaultPetButton">민트 알 선택</button>
+        <p>관리자가 공개한 펫 알 중 하나를 선택해 키울 수 있어요.</p>
+        <div class="pet-type-grid" id="petTypeGrid"></div>
       </section>
 
       <section class="pet-main hidden" id="petMainPanel">
@@ -813,6 +812,168 @@
 
           <div class="admin-character-list" id="adminCharacterList"></div>
         </section>
+
+
+        <section class="admin-section">
+          <div class="section-title-row">
+            <div><p class="section-label">POINT OPERATIONS</p><h3>포인트 운영</h3></div>
+          </div>
+          <div class="admin-settings-grid">
+            <div class="admin-form-card">
+              <h4>관리자 현재 브라우저 충전</h4>
+              <label><span>추가 포인트</span><input id="adminSelfPointInput" type="number" min="1" step="1" value="1000"></label>
+              <button class="mint-button" id="adminSelfPointButton" type="button">내 로컬 포인트 추가</button>
+              <p class="admin-form-message">현재 관리자 브라우저 세이브에만 반영됩니다.</p>
+            </div>
+            <div class="admin-form-card">
+              <h4>전체 방문자 1회 지급</h4>
+              <label><span>지급 포인트</span><input id="adminGlobalPointInput" type="number" min="1" step="1" value="500"></label>
+              <button class="mint-button" id="adminGlobalPointButton" type="button">전체 지급 공지 생성</button>
+              <p class="admin-form-message" id="adminGlobalPointMessage">새 지급 ID가 생성되며 세이브별 1회만 수령합니다.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="admin-section" id="adminUsersSection">
+          <div class="section-title-row">
+            <div>
+              <p class="section-label">USER MANAGEMENT</p>
+              <h3>가입 유저 / 계정 관리</h3>
+            </div>
+            <button class="small-button" id="adminRefreshUsersButton" type="button">새로고침</button>
+          </div>
+
+          <div class="admin-user-stats" id="adminUserStats">
+            <div><span>전체 가입자</span><strong id="adminStatTotal">0</strong></div>
+            <div><span>최근 7일 활동</span><strong id="adminStatActive">0</strong></div>
+            <div><span>이용 정지</span><strong id="adminStatSuspended">0</strong></div>
+            <div><span>세이브 없음</span><strong id="adminStatNoSave">0</strong></div>
+          </div>
+
+          <div class="admin-toolbar">
+            <input type="search" id="adminUserSearch" placeholder="이메일 / UID 검색">
+            <select id="adminUserSort">
+              <option value="created_desc">가입 최신순</option>
+              <option value="created_asc">가입 오래된순</option>
+              <option value="login_desc">최근 로그인순</option>
+              <option value="points_desc">포인트 많은순</option>
+            </select>
+          </div>
+
+          <div class="admin-user-list" id="adminUserList"></div>
+          <p class="admin-form-message" id="adminUserMessage"></p>
+        </section>
+
+        <section class="admin-section">
+          <div class="section-title-row">
+            <div>
+              <p class="section-label">EVENT BANNERS</p>
+              <h3>홈 이벤트 배너</h3>
+            </div>
+            <div class="admin-title-actions"><label class="checkbox-field"><input id="bannerMasterInput" type="checkbox" checked><span>홈 배너 전체 켜기</span></label><button class="small-button" id="resetBannerFormButton" type="button">새 배너</button></div>
+          </div>
+
+          <form class="ops-form" id="bannerForm">
+            <input type="hidden" id="bannerEditId">
+            <div class="ops-grid">
+              <label><span>배너 문구</span><input id="bannerTextInput" maxlength="160" placeholder="이벤트 문구"></label>
+              <label><span>글자 크기</span><input id="bannerFontSizeInput" type="number" min="16" max="80" value="32"></label>
+              <label><span>텍스트 X 위치 (%)</span><input id="bannerXInput" type="number" min="0" max="100" value="25"></label>
+              <label><span>텍스트 Y 위치 (%)</span><input id="bannerYInput" type="number" min="0" max="100" value="50"></label>
+              <label><span>네온 색상</span><input id="bannerColorInput" type="color" value="#35c597"></label>
+              <label><span>표시 순서</span><input id="bannerSortInput" type="number" min="0" value="0"></label>
+              <label class="checkbox-field"><input id="bannerPulseInput" type="checkbox"><span>펄스 효과</span></label>
+              <label class="checkbox-field"><input id="bannerEnabledInput" type="checkbox" checked><span>홈에 표시</span></label>
+            </div>
+            <div class="upload-grid">
+              <label class="upload-box"><span>배너 이미지</span><input id="bannerImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>PNG/JPG/WEBP/GIF · 최대 10MB</small></label>
+              <label class="upload-box"><span>사용자 폰트</span><input id="bannerFontInput" type="file" accept=".ttf,.otf,.woff,.woff2"><small>TTF/OTF/WOFF/WOFF2 · 최대 10MB</small></label>
+            </div>
+            <div class="admin-form-actions">
+              <button class="mint-button" type="submit">배너 저장</button>
+              <button class="white-button hidden" id="cancelBannerEditButton" type="button">수정 취소</button>
+            </div>
+            <p class="admin-form-message" id="bannerFormMessage"></p>
+          </form>
+          <div class="ops-list" id="adminBannerList"></div>
+        </section>
+
+        <section class="admin-section">
+          <div class="section-title-row">
+            <div>
+              <p class="section-label">RHYTHM SONGS</p>
+              <h3>리듬게임 노래 관리</h3>
+            </div>
+          </div>
+          <form class="ops-form" id="rhythmSongForm">
+            <div class="ops-grid">
+              <label><span>노래 제목</span><input id="rhythmSongTitleInput" maxlength="100" required></label>
+              <label><span>아티스트</span><input id="rhythmSongArtistInput" maxlength="100" required></label>
+            </div>
+            <label class="upload-box"><span>음원 파일</span><input id="rhythmSongFileInput" type="file" accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg" required><small>MP3/WAV/OGG · 최대 20MB · 5초~10분 · 등록 시 4난이도 자동 채보</small></label>
+            <button class="mint-button" type="submit">분석 후 노래 등록</button>
+            <p class="admin-form-message" id="rhythmSongMessage"></p>
+          </form>
+          <div class="ops-list" id="adminRhythmSongList"></div>
+        </section>
+
+        <section class="admin-section">
+          <div class="section-title-row">
+            <div>
+              <p class="section-label">PET TYPES</p>
+              <h3>펫 종류 / 이미지 / 대사 관리</h3>
+            </div>
+            <button class="small-button" id="resetPetTypeFormButton" type="button">새 펫</button>
+          </div>
+
+          <form class="ops-form" id="petTypeForm">
+            <input type="hidden" id="petTypeEditId">
+            <div class="ops-grid">
+              <label><span>펫 이름</span><input id="petTypeNameInput" maxlength="80" required></label>
+              <label><span>설명</span><input id="petTypeDescriptionInput" maxlength="240"></label>
+              <label><span>표시 순서</span><input id="petTypeSortInput" type="number" min="0" value="0"></label>
+              <label class="checkbox-field"><input id="petTypePublicInput" type="checkbox" checked><span>알 선택 목록 공개</span></label>
+            </div>
+
+            <div class="pet-image-admin-grid">
+              <label><span>알 기본 *</span><input data-pet-image-key="egg_base" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>알 꼬질꼬질</span><input data-pet-image-key="egg_dirty" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>아기 기본 *</span><input data-pet-image-key="baby_base" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>아기 슬픔</span><input data-pet-image-key="baby_sad" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>아기 꼬질꼬질</span><input data-pet-image-key="baby_dirty" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>아기 기쁨</span><input data-pet-image-key="baby_happy" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>어린이 기본 *</span><input data-pet-image-key="child_base" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>어린이 슬픔</span><input data-pet-image-key="child_sad" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>어린이 꼬질꼬질</span><input data-pet-image-key="child_dirty" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>어린이 기쁨</span><input data-pet-image-key="child_happy" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>성인 기본 *</span><input data-pet-image-key="adult_base" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>성인 슬픔</span><input data-pet-image-key="adult_sad" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>성인 꼬질꼬질</span><input data-pet-image-key="adult_dirty" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>성인 기쁨</span><input data-pet-image-key="adult_happy" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+              <label><span>사망 무덤</span><input data-pet-image-key="grave" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+            </div>
+
+            <div class="dialogue-admin-editor">
+              <label><span>대사 종류</span>
+                <select id="petDialogueTypeSelect">
+                  <option value="feed">밥</option><option value="wash">목욕</option><option value="play">놀이</option><option value="walk">산책</option><option value="gift">선물</option>
+                  <option value="hatch">부화</option><option value="grow">성장</option><option value="hunger">배고픔</option><option value="dirty">더러움</option><option value="both">배고픔+더러움</option>
+                  <option value="sick">질병</option><option value="want_play">놀아달라</option><option value="want_walk">산책 가고 싶다</option><option value="neglected">놀기+산책 부족</option>
+                  <option value="sad">우울</option><option value="recover">회복</option><option value="death">사망</option><option value="touch_head">머리 터치</option><option value="touch_face">얼굴 터치</option><option value="touch_body">몸 터치</option>
+                </select>
+              </label>
+              <label><span>대사 · 한 줄에 1개</span><textarea id="petDialogueTextarea" rows="5"></textarea></label>
+            </div>
+
+            <div class="admin-form-actions">
+              <button class="mint-button" type="submit">펫 저장</button>
+              <button class="white-button hidden" id="cancelPetTypeEditButton" type="button">수정 취소</button>
+            </div>
+            <p class="admin-form-message" id="petTypeMessage"></p>
+          </form>
+          <div class="ops-list" id="adminPetTypeList"></div>
+        </section>
+
       </div>
     </section>
   </main>
@@ -872,6 +1033,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=5"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>
