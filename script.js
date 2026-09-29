@@ -5,6 +5,7 @@ const SAVE_KEY = "mintGachaSave_v1";
 const LOCAL_BACKUP_KEY = "mintGachaLocalBackupBeforeCloud_v1";
 const RHYTHM_SPEED_KEY = "mintRhythmFallSpeed_v1";
 const RHYTHM_OFFSET_KEY = "mintRhythmTimingOffset_v1";
+const GLOBAL_GRANT_BROWSER_KEY = "mintGlobalPointGrantLastId_v1";
 
 const DEFAULT_SAVE = {
   version: 3,
@@ -414,7 +415,22 @@ function initSupabase() {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
+  renderHeaderSystemStatus();
   return true;
+}
+
+function renderHeaderSystemStatus() {
+  const syncEl = document.getElementById("headerSyncText");
+  if (!syncEl) return;
+
+  const flags = [
+    supabaseClient ? "SERVER" : "SERVER OFF",
+    currentUser ? "LOGIN" : "GUEST",
+    isAdmin ? "ADMIN" : null,
+    currentUser && cloudReady ? "AUTO SAVE" : "LOCAL"
+  ].filter(Boolean);
+
+  syncEl.textContent = flags.join(" · ");
 }
 
 function setCloudUi(state, title, description) {
@@ -428,10 +444,9 @@ function setCloudUi(state, title, description) {
   }
   const titleEl = document.getElementById("cloudStatusTitle");
   const descEl = document.getElementById("cloudStatusDescription");
-  const syncEl = document.getElementById("headerSyncText");
   if (titleEl) titleEl.textContent = title;
   if (descEl) descEl.textContent = description;
-  if (syncEl) syncEl.textContent = title;
+  renderHeaderSystemStatus();
 }
 
 function renderAccountUi() {
@@ -882,11 +897,13 @@ function showGachaResults(type, results) {
     const char = characters.find((c) => c.id === result.id);
     if (!char) return "";
     const owned = getOwnedCount(char.id);
-    const newLabel = result.isNew ? (char.is_limited ? "LIMITED NEW" : "NEW") : "";
+    const resultLabel = result.isNew
+      ? (char.is_limited ? "LIMITED NEW" : "NEW")
+      : (char.is_limited ? "LIMITED DUP" : `${char.rarity} DUP`);
     const cardClass = char.is_limited ? "limited" : char.rarity.toLowerCase();
     return `
       <div class="result-card ${cardClass}">
-        ${newLabel ? `<span class="result-label ${char.is_limited ? "limited" : ""}">${escapeHTML(newLabel)}</span>` : ""}
+        <span class="result-label ${char.is_limited ? "limited" : ""}">${escapeHTML(resultLabel)}</span>
         <div class="result-image">${artHTML(char)}</div>
         <div class="result-card-body">
           <strong>${escapeHTML(char.name)}</strong>
@@ -1353,6 +1370,7 @@ async function refreshAdminAccess() {
     isAdmin = false;
   }
   renderAdminGate();
+  renderHeaderSystemStatus();
   if (isAdmin) renderAdmin();
 }
 
@@ -3774,10 +3792,17 @@ document.querySelectorAll("[data-casino-view]").forEach((button)=>button.addEven
   ["rps","slots","blackjack","derby"].forEach((name)=>document.getElementById(`casinoView${name[0].toUpperCase()}${name.slice(1)}`)?.classList.toggle("hidden",name!==view));
 }));
 
-function validatedBet(inputId){
+function validatedBet(inputId,maxMultiplier=1){
   const value=Math.floor(Number(document.getElementById(inputId)?.value));
   if(!Number.isSafeInteger(value)||value<1){alert("1P 이상 정수로 배팅해주세요.");return null;}
   if(value>saveData.points){alert("보유 포인트보다 많이 배팅할 수 없어요.");return null;}
+
+  const maximumPayout=Math.floor(value*maxMultiplier);
+  const maximumFinal=(saveData.points-value)+maximumPayout;
+  if(!Number.isSafeInteger(maximumPayout)||!Number.isSafeInteger(maximumFinal)){
+    alert("안전한 포인트 계산 범위를 넘는 배팅이에요. 배팅 금액을 줄여주세요.");
+    return null;
+  }
   return value;
 }
 function cryptoRandomInt(max){
@@ -3790,7 +3815,7 @@ document.querySelectorAll("[data-allin]").forEach((button)=>button.addEventListe
 }));
 
 document.querySelectorAll("[data-rps-choice]").forEach((button)=>button.addEventListener("click",()=>{
-  const bet=validatedBet("rpsBetInput");if(!bet)return;
+  const bet=validatedBet("rpsBetInput",2);if(!bet)return;
   const choices=["scissors","rock","paper"],emoji={scissors:"✌️",rock:"✊",paper:"✋"};
   const user=button.dataset.rpsChoice,cpu=choices[cryptoRandomInt(3)];
   spendPoints(bet);
@@ -3804,7 +3829,7 @@ document.querySelectorAll("[data-rps-choice]").forEach((button)=>button.addEvent
 
 const SLOT_SYMBOLS=["🍒","🍋","⭐","💎"];
 document.getElementById("slotSpinButton")?.addEventListener("click",()=>{
-  const bet=validatedBet("slotBetInput");if(!bet)return;
+  const bet=validatedBet("slotBetInput",10);if(!bet)return;
   spendPoints(bet);
   const reels=[0,0,0].map(()=>SLOT_SYMBOLS[cryptoRandomInt(SLOT_SYMBOLS.length)]);
   document.getElementById("slotReels").innerHTML=reels.map((s)=>`<span>${s}</span>`).join("");
@@ -3832,7 +3857,7 @@ function handScore(hand){let total=hand.reduce((s,c)=>s+cardValue(c),0),aces=han
 function cardHTML(card,hidden=false){if(hidden)return `<span class="playing-card back">?</span>`;return `<span class="playing-card ${["♥","♦"].includes(card.suit)?"red":""}">${card.rank}${card.suit}</span>`;}
 
 function startBlackjack(){
-  const bet=validatedBet("blackjackBetInput");if(!bet)return;
+  const bet=validatedBet("blackjackBetInput",2.5);if(!bet)return;
   spendPoints(bet);const deck=createDeck();
   saveData.blackjackPending={bet,deck,player:[deck.pop(),deck.pop()],dealer:[deck.pop(),deck.pop()],finished:false,doubled:false};saveGame();renderBlackjack();
   const p=saveData.blackjackPending;
@@ -3946,7 +3971,7 @@ function startDerby(){
   const list=window._derbyEntrants||[];if(list.length<5)return;
   const picks=[1,2,3].map((n)=>document.getElementById(`derbyPick${n}`).value);
   if(picks.some((x)=>!x)||new Set(picks).size!==3)return alert("1~3위는 서로 다른 캐릭터로 선택해주세요.");
-  const bet=validatedBet("derbyBetInput");if(!bet)return;
+  const bet=validatedBet("derbyBetInput",8);if(!bet)return;
   spendPoints(bet);
   const result=[...list.map((c)=>c.id)].sort(()=>Math.random()-.5);
   saveData.derbyPending={entrants:list.map((c)=>c.id),picks,bet,result,startedAt:Date.now(),finishAt:Date.now()+18000,settled:false};
@@ -3981,7 +4006,10 @@ function settleDerby(){
     if(Number.isSafeInteger(next)) saveData.points=next;
   }
   const names=p.result.slice(0,3).map((id)=>characters.find((c)=>c.id===id)?.name||"?");
-  saveData.derbyRecent=`결과 ${names.map((n,i)=>`${i+1}위 ${n}`).join(" · ")} · ${mult}배 · ${formatPoints(payout)}P 지급`;
+  const pickNames=p.picks.map((id)=>characters.find((c)=>c.id===id)?.name||"?");
+  const net=payout-p.bet;
+  const netText=`${net>=0?"+":""}${formatPoints(Math.abs(net))}P`;
+  saveData.derbyRecent=`예측 ${pickNames.map((n,i)=>`${i+1}위 ${n}`).join(" / ")} · 결과 ${names.map((n,i)=>`${i+1}위 ${n}`).join(" / ")} · 배팅 ${formatPoints(p.bet)}P · 지급 ${formatPoints(payout)}P · 순손익 ${net>=0?"+":"-"}${formatPoints(Math.abs(net))}P`;
   saveData.derbyPending=null;
   saveGame();
   updatePointDisplays();
@@ -4064,16 +4092,47 @@ function randomPetLineV6(type,key,fallback){const list=type?.dialogues?.[key];re
 function petDialogueV6(key,fallback){return randomPetLineV6(getPetTypeV6(),key,fallback);}
 function createPetFromTypeV6(type){const now=Date.now();return{id:type.id,typeId:type.id,name:type.name,exp:0,affection:0,mood:80,hunger:0,dirt:0,bornAt:now,lastCare:now,lastPlay:now,lastWalk:now,lastUpdate:now,actionAt:{},sick:false,dead:false,deathReason:null,completed:false};}
 function petImageKeyV6(p,stage){if(p.dead)return"grave";const prefix=stage.name==="알"?"egg":stage.name==="아기"?"baby":stage.name==="어린이"?"child":"adult";if(p.dirt>=70)return`${prefix}_dirty`;if(p.mood<=30)return`${prefix}_sad`;if(p.mood>=75&&p.hunger<50&&p.dirt<50)return`${prefix}_happy`;return`${prefix}_base`;}
-function renderPetVisualV6(p,stage){const el=document.getElementById("petVisualEmoji");if(!el)return;const type=getPetTypeV6(p),images=type?.images||{},key=petImageKeyV6(p,stage);const base=stage.name==="알"?"egg_base":stage.name==="아기"?"baby_base":stage.name==="어린이"?"child_base":"adult_base";const url=images[key]||images[base]||(p.dead?images.grave:"");if(url)el.innerHTML=`<img src="${escapeHTML(url)}" alt="${escapeHTML(type?.name||p.name||"펫")}">`;else el.textContent=p.dead?"🪦":p.dirt>=70?"🧼":p.mood<=30?"🥺":stage.emoji;}
+function renderPetVisualV6(p,stage){
+  const el=document.getElementById("petVisualEmoji");
+  if(!el)return;
+
+  const type=getPetTypeV6(p),images=type?.images||{};
+
+  // 사망 상태는 전용 무덤 이미지가 없으면 반드시 기본 🪦 아이콘 사용.
+  if(p.dead){
+    if(images.grave){
+      el.innerHTML=`<img src="${escapeHTML(images.grave)}" alt="${escapeHTML(type?.name||p.name||"펫")} 사망 무덤">`;
+    }else{
+      el.textContent="🪦";
+    }
+    return;
+  }
+
+  const key=petImageKeyV6(p,stage);
+  const base=stage.name==="알"?"egg_base":stage.name==="아기"?"baby_base":stage.name==="어린이"?"child_base":"adult_base";
+  const url=images[key]||images[base]||"";
+  if(url)el.innerHTML=`<img src="${escapeHTML(url)}" alt="${escapeHTML(type?.name||p.name||"펫")}">`;
+  else el.textContent=p.dirt>=70?"🧼":p.mood<=30?"🥺":stage.emoji;
+}
 function renderPetTypeSelection(){const grid=document.getElementById("petTypeGrid");if(!grid||saveData.pet)return;const list=petTypes.filter((p)=>p.is_public);grid.innerHTML=list.length?list.map((type)=>{const image=type.images?.egg_base;return`<div class="pet-type-card"><div class="pet-type-art">${image?`<img src="${escapeHTML(image)}" alt="${escapeHTML(type.name)}">`:"🥚"}</div><h4>${escapeHTML(type.name)}</h4><p>${escapeHTML(type.description||"")}</p><button type="button" data-pet-type-select="${type.id}">이 알 선택</button></div>`;}).join(""):`<div class="card">현재 공개된 펫 알이 없어요.</div>`;grid.querySelectorAll("[data-pet-type-select]").forEach((button)=>button.addEventListener("click",()=>{const type=petTypes.find((p)=>p.id===button.dataset.petTypeSelect);if(!type)return;saveData.pet=createPetFromTypeV6(type);saveGame();renderPet();}));}
 
 function applyGlobalPointGrantV6(){
-  const g=globalPointGrantV6;if(!g?.id||!Number.isSafeInteger(Math.floor(Number(g.amount)))||Number(g.amount)<=0)return;
-  if(saveData.lastGlobalGrantId===g.id)return;
-  saveData.lastGlobalGrantId=g.id;
+  const g=globalPointGrantV6;
+  if(!g?.id||!Number.isSafeInteger(Math.floor(Number(g.amount)))||Number(g.amount)<=0)return;
+
+  // 전체 방문자 지급은 계정이 아니라 "브라우저별 1회" 수령.
+  // 클라우드 세이브에 넣지 않고 별도 localStorage 키로만 기록한다.
+  const lastId=localStorage.getItem(GLOBAL_GRANT_BROWSER_KEY);
+  if(lastId===g.id)return;
+
   const amount=Math.floor(Number(g.amount));
-  const next=saveData.points+amount;if(!Number.isSafeInteger(next))return;
-  saveData.points=next;saveGame();updatePointDisplays();
+  const next=saveData.points+amount;
+  if(!Number.isSafeInteger(next))return;
+
+  saveData.points=next;
+  localStorage.setItem(GLOBAL_GRANT_BROWSER_KEY,g.id);
+  saveGame();
+  updatePointDisplays();
 }
 
 document.getElementById("adminSelfPointButton")?.addEventListener("click",()=>{const amount=Math.floor(Number(document.getElementById("adminSelfPointInput")?.value)||0);if(amount>0&&addPoints(amount))alert(`${formatPoints(amount)}P를 현재 관리자 세이브에 추가했어요.`);});
@@ -4105,7 +4164,7 @@ setTimeout(()=>{void v6CheckAccountAndActions();},2500);
 async function loadAdminUsersV6(){
   if(!isAdmin||!supabaseClient)return;
   setMessage("adminUserMessage","불러오는 중...");
-  const candidates=["admin_list_users_v4","admin_list_users_v3","admin_list_users_v2","admin_list_users"];
+  const candidates=["admin_list_users_v5","admin_list_users_v4","admin_list_users_v3","admin_list_users_v2","admin_list_users"];
   let lastError=null,data=null,used="";
   for(const fn of candidates){
     const res=await supabaseClient.rpc(fn);

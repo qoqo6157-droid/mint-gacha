@@ -1303,3 +1303,22 @@ body.game-shake { animation: gameShake .24s linear; }
   .banner-editor-preview { min-height: 170px; }
   .banner-editor-preview-text { max-width: 88%; }
 }
+
+
+/* =========================================================
+   V9 최종 검수 보강
+========================================================= */
+
+.result-label:not(.limited) {
+  background: rgba(255,255,255,.92);
+  color: #3f7e6c;
+  border: 1px solid #cfe9df;
+}
+
+@media (max-width: 900px) {
+  #headerSyncStatus {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
