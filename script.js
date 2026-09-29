@@ -888,41 +888,94 @@ document.getElementById("normalDraw10Button")?.addEventListener("click", () => p
 document.getElementById("limitedDraw1Button")?.addEventListener("click", () => performGacha("limited", 1));
 document.getElementById("limitedDraw10Button")?.addEventListener("click", () => performGacha("limited", 10));
 
-function showGachaResults(type, results) {
-  const modal = document.getElementById("gachaResultModal");
-  const grid = document.getElementById("gachaResultGrid");
-  document.getElementById("gachaResultTitle").textContent = type === "limited" ? "한정 가챠 결과" : "일반 가챠 결과";
+let gachaFxTimer = null;
 
-  grid.innerHTML = results.map((result) => {
+function gachaResultTier(results) {
+  const pulled = results.map((result) => characters.find((c) => c.id === result.id)).filter(Boolean);
+  if (pulled.some((char) => char.is_limited)) return "limited";
+  if (pulled.some((char) => char.rarity === "SSR")) return "ssr";
+  if (pulled.some((char) => char.rarity === "SR")) return "sr";
+  return "r";
+}
+
+function playGachaFx(tier) {
+  const layer = document.getElementById("gachaFxLayer");
+  if (!layer) return;
+  clearTimeout(gachaFxTimer);
+  const count = tier === "limited" ? 42 : tier === "ssr" ? 32 : tier === "sr" ? 24 : 14;
+  const particles = Array.from({ length: count }, (_, index) => {
+    const left = 4 + Math.random() * 92;
+    const top = 15 + Math.random() * 70;
+    const delay = Math.random() * 0.45;
+    const size = 4 + Math.random() * (tier === "limited" ? 10 : 7);
+    const spin = Math.round(Math.random() * 240 - 120);
+    return `<i class="gacha-fx-particle" style="--x:${left}%;--y:${top}%;--d:${delay}s;--s:${size}px;--spin:${spin}deg"></i>`;
+  }).join("");
+
+  layer.className = `gacha-fx-layer play ${tier}`;
+  layer.innerHTML = `<div class="gacha-fx-burst"></div><div class="gacha-fx-ring"></div>${particles}`;
+  gachaFxTimer = setTimeout(() => {
+    layer.className = "gacha-fx-layer";
+    layer.innerHTML = "";
+  }, tier === "limited" ? 1700 : 1300);
+}
+
+function showGachaResults(type, results) {
+  const limitedPull = type === "limited";
+  const container = document.getElementById(limitedPull ? "limitedGachaResults" : "normalGachaResults");
+  const grid = document.getElementById(limitedPull ? "limitedGachaResultGrid" : "normalGachaResultGrid");
+  const summary = document.getElementById(limitedPull ? "limitedGachaResultSummary" : "normalGachaResultSummary");
+  if (!container || !grid) return;
+
+  const tier = gachaResultTier(results);
+  const counts = { LIMITED: 0, SSR: 0, SR: 0, R: 0 };
+
+  grid.innerHTML = results.map((result, index) => {
     const char = characters.find((c) => c.id === result.id);
     if (!char) return "";
     const owned = getOwnedCount(char.id);
+    const rarityClass = String(char.rarity || "R").toLowerCase();
+    const isLimited = Boolean(char.is_limited);
+    if (isLimited) counts.LIMITED += 1;
+    else if (char.rarity === "SSR") counts.SSR += 1;
+    else if (char.rarity === "SR") counts.SR += 1;
+    else counts.R += 1;
+
     const resultLabel = result.isNew
-      ? (char.is_limited ? "LIMITED NEW" : "NEW")
-      : (char.is_limited ? "LIMITED DUP" : `${char.rarity} DUP`);
-    const cardClass = char.is_limited ? "limited" : char.rarity.toLowerCase();
+      ? (isLimited ? "LIMITED NEW" : "NEW")
+      : (isLimited ? "LIMITED DUP" : `${char.rarity} DUP`);
+
     return `
-      <div class="result-card ${cardClass}">
-        <span class="result-label ${char.is_limited ? "limited" : ""}">${escapeHTML(resultLabel)}</span>
-        <div class="result-image">${artHTML(char)}</div>
-        <div class="result-card-body">
+      <article class="gacha-result-card ${rarityClass} ${isLimited ? "limited" : ""}" style="--reveal-delay:${index * 95}ms">
+        <div class="gacha-card-glow"></div>
+        <span class="gacha-result-label ${isLimited ? "limited" : ""}">${escapeHTML(resultLabel)}</span>
+        ${isLimited ? `<span class="limited-ribbon">✦ LIMITED ✦</span>` : ""}
+        <div class="gacha-result-image">${artHTML(char)}</div>
+        <div class="gacha-result-body">
           <strong>${escapeHTML(char.name)}</strong>
-          <small>${char.is_limited ? "LIMITED · " : ""}${escapeHTML(char.rarity)} · 보유 ${owned}장</small>
+          <small>${isLimited ? "LIMITED · " : ""}${escapeHTML(char.rarity)} · 보유 ${owned}장</small>
         </div>
-      </div>`;
+      </article>`;
   }).join("");
 
-  modal?.classList.remove("hidden");
-  document.body.classList.add("modal-open");
-}
+  if (summary) {
+    const pieces = [];
+    if (counts.LIMITED) pieces.push(`한정 ${counts.LIMITED}`);
+    if (counts.SSR) pieces.push(`SSR ${counts.SSR}`);
+    if (counts.SR) pieces.push(`SR ${counts.SR}`);
+    if (counts.R) pieces.push(`R ${counts.R}`);
+    summary.textContent = pieces.join(" · ");
+  }
 
-function closeGachaResultModal() {
-  document.getElementById("gachaResultModal")?.classList.add("hidden");
-  if (document.querySelectorAll(".modal-backdrop:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
-}
+  container.classList.remove("hidden");
+  container.classList.remove("reveal-limited", "reveal-ssr", "reveal-sr", "reveal-r");
+  container.classList.add(`reveal-${tier}`);
+  playGachaFx(tier);
 
-document.getElementById("closeGachaResultModal")?.addEventListener("click", closeGachaResultModal);
-document.getElementById("gachaResultConfirmButton")?.addEventListener("click", closeGachaResultModal);
+  requestAnimationFrame(() => {
+    setTimeout(() => container.scrollIntoView({ behavior: "smooth", block: "center" }), 70);
+  });
+}
 
 function renderGacha() {
   const normalRate = document.getElementById("normalRateRow");

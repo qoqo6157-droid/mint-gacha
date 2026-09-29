@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <header>
@@ -189,7 +189,15 @@
         </div>
         <p class="inline-message" id="normalGachaMessage"></p>
 
-        <section class="exchange-section">
+        <section class="gacha-inline-results hidden" id="normalGachaResults" aria-live="polite">
+          <div class="gacha-result-heading">
+            <div><span>RESULT</span><strong>뽑기 결과</strong></div>
+            <small id="normalGachaResultSummary"></small>
+          </div>
+          <div class="gacha-result-stream" id="normalGachaResultGrid"></div>
+        </section>
+
+        <section class="exchange-section compact-exchange">
           <div class="section-title-row">
             <div>
               <p class="section-label">EXCHANGE</p>
@@ -224,7 +232,15 @@
         </div>
         <p class="inline-message" id="limitedGachaMessage"></p>
 
-        <section class="exchange-section">
+        <section class="gacha-inline-results hidden limited-results" id="limitedGachaResults" aria-live="polite">
+          <div class="gacha-result-heading">
+            <div><span>LIMITED RESULT</span><strong>뽑기 결과</strong></div>
+            <small id="limitedGachaResultSummary"></small>
+          </div>
+          <div class="gacha-result-stream" id="limitedGachaResultGrid"></div>
+        </section>
+
+        <section class="exchange-section compact-exchange">
           <div class="section-title-row">
             <div>
               <p class="section-label">LIMITED EXCHANGE</p>
@@ -1019,16 +1035,8 @@
     </div>
   </div>
 
-  <!-- 가챠 결과 모달 -->
-  <div class="modal-backdrop hidden" id="gachaResultModal">
-    <div class="result-modal">
-      <button class="modal-close" type="button" id="closeGachaResultModal">×</button>
-      <p class="section-label">GACHA RESULT</p>
-      <h2 id="gachaResultTitle">가챠 결과</h2>
-      <div class="result-grid" id="gachaResultGrid"></div>
-      <button class="mint-button result-close-button" type="button" id="gachaResultConfirmButton">확인</button>
-    </div>
-  </div>
+  <!-- 가챠 연출 레이어: 팝업이 아니라 화면 위 이펙트만 잠깐 재생 -->
+  <div class="gacha-fx-layer" id="gachaFxLayer" aria-hidden="true"></div>
 
   <!-- 한계돌파 모달 -->
   <div class="modal-backdrop hidden" id="limitBreakModal">
@@ -1068,6 +1076,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=9"></script>
+  <script src="script.js?v=10"></script>
 </body>
 </html>
