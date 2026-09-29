@@ -20,7 +20,8 @@ const DEFAULT_SAVE = {
     matching: {},
     characterPang: { highScore: 0, equippedSSR: null },
     runner: { highScore: 0, selectedCharacter: null },
-    tetris: { highScore: 0, bestLines: 0, selectedCharacter: null, tSpinCount: 0, tetrisCount: 0, perfectClearCount: 0 },
+    tetris: { highScore: 0, bestLines: 0, selectedCharacter: null, tSpinCount: 0, tetrisCount: 0, perfectClearCount: 0,
+      tSpinMiniCount: 0 },
     rhythm: { selectedCharacter: null, fallSpeed: 1, timingOffset: 0, bestScore: 0 }
   },
   pet: null,
@@ -63,6 +64,7 @@ let adminUsers = [];
 let activeBannerIndex = 0;
 let bannerSlideTimer = null;
 let petDialogueDrafts = {};
+let petGiftItemDialogueDrafts = {};
 let globalPointGrantV6 = null;
 let bannerMasterEnabledV6 = true;
 
@@ -1142,6 +1144,7 @@ function renderHomeCharacter() {
   const name = document.getElementById("homeCharacterName");
   const help = document.getElementById("homeCharacterHelp");
   const dialogue = document.getElementById("homeCharacterDialogue");
+  const saveImageButton = document.getElementById("saveHomeCharacterImageButton");
   if (!image || !rarity || !name || !help || !dialogue) return;
 
   if (!list.length) {
@@ -1152,13 +1155,24 @@ function renderHomeCharacter() {
     dialogue.textContent = "“캐릭터를 터치하면 대사가 표시됩니다.”";
     image.dataset.characterId = "";
     dialogue.dataset.characterId = "";
+    if (saveImageButton) {
+      saveImageButton.disabled = true;
+      saveImageButton.dataset.imageUrl = "";
+      saveImageButton.dataset.characterName = "";
+    }
     return;
   }
 
   const char = randomChoice(list);
+  const displayedImageUrl = characterDisplayImage(char, "home");
   image.innerHTML = artHTML(char, "home");
   image.dataset.characterId = char.id;
   dialogue.dataset.characterId = char.id;
+  if (saveImageButton) {
+    saveImageButton.disabled = !displayedImageUrl;
+    saveImageButton.dataset.imageUrl = displayedImageUrl || "";
+    saveImageButton.dataset.characterName = char.name || "character";
+  }
   rarity.textContent = char.is_limited ? `LIMITED · ${char.rarity}` : char.rarity;
   name.textContent = char.name;
   help.textContent = getLimitBreakLevel(char.id) === 3 ? "★★★ FULL · 홈에서 풀돌 전/후 일러를 선택할 수 있어요." : `보유 ${getOwnedCount(char.id)}장`;
@@ -1175,6 +1189,51 @@ function showRandomDialogue(id) {
 
 document.getElementById("homeCharacterImage")?.addEventListener("click", (e) => showRandomDialogue(e.currentTarget.dataset.characterId));
 document.getElementById("homeCharacterDialogue")?.addEventListener("click", (e) => showRandomDialogue(e.currentTarget.dataset.characterId));
+
+function extensionFromImage(contentType, url) {
+  const byType = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif"
+  };
+  if (byType[contentType]) return byType[contentType];
+  const match = String(url || "").match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+  const ext = (match?.[1] || "png").toLowerCase();
+  return ["png","jpg","jpeg","webp","gif"].includes(ext) ? (ext === "jpeg" ? "jpg" : ext) : "png";
+}
+
+async function saveCurrentHomeCharacterImage() {
+  const button = document.getElementById("saveHomeCharacterImageButton");
+  const url = button?.dataset.imageUrl;
+  if (!url) return;
+
+  try {
+    button.disabled = true;
+    button.textContent = "저장 중...";
+    const response = await fetch(url, { mode: "cors" });
+    if (!response.ok) throw new Error("이미지를 불러오지 못했어요.");
+    const blob = await response.blob();
+    const ext = extensionFromImage(blob.type, url);
+    const safeName = String(button.dataset.characterName || "character").replace(/[\\/:*?"<>|]+/g, "_");
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `${safeName}.${ext}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.warn("홈 이미지 저장 실패", error);
+    alert("자동 저장에 실패했어요. 캐릭터 이미지를 우클릭하거나 모바일에서 길게 눌러 저장해주세요.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "이미지 저장";
+  }
+}
+
+document.getElementById("saveHomeCharacterImageButton")?.addEventListener("click", () => void saveCurrentHomeCharacterImage());
 
 function openHomeCharacterModal() {
   tempHomeSelection = new Set(validHomeCharacters().map((c) => c.id));
@@ -2215,6 +2274,147 @@ function pangHasPossibleMove() {
   return false;
 }
 
+function showPangComboLabel(text){
+  let el=document.getElementById("pangComboLabelV7");
+  if(!el){
+    el=document.createElement("div");
+    el.id="pangComboLabelV7";
+    el.className="pang-combo-label";
+    document.body.appendChild(el);
+  }
+  el.textContent=text;
+  el.classList.remove("show");
+  void el.offsetWidth;
+  el.classList.add("show");
+}
+
+function pangAllPositions(){
+  const set=new Set();
+  for(let r=0;r<PANG_SIZE;r++)for(let c=0;c<PANG_SIZE;c++)set.add(`${r},${c}`);
+  return set;
+}
+
+function pangAddArea(set,r,c,radius){
+  for(let rr=r-radius;rr<=r+radius;rr++)for(let cc=c-radius;cc<=c+radius;cc++){
+    if(rr>=0&&rr<PANG_SIZE&&cc>=0&&cc<PANG_SIZE)set.add(`${rr},${cc}`);
+  }
+}
+
+function pangAddCross(set,r,c,thickness=0){
+  for(let d=-thickness;d<=thickness;d++){
+    const rr=r+d,cc=c+d;
+    if(rr>=0&&rr<PANG_SIZE)for(let x=0;x<PANG_SIZE;x++)set.add(`${rr},${x}`);
+    if(cc>=0&&cc<PANG_SIZE)for(let x=0;x<PANG_SIZE;x++)set.add(`${x},${cc}`);
+  }
+}
+
+function pangRandomTargets(count, excluded=new Set()){
+  const all=[];
+  for(let r=0;r<PANG_SIZE;r++)for(let c=0;c<PANG_SIZE;c++){
+    const key=`${r},${c}`;
+    if(!excluded.has(key))all.push({r,c});
+  }
+  all.sort(()=>Math.random()-.5);
+  return all.slice(0,count);
+}
+
+async function resolvePangSpecialSwap(a,b,r1,c1,r2,c2){
+  const sa=a?.special||null,sb=b?.special||null;
+  if(!sa&&!sb)return false;
+
+  const removal=new Set();
+  let label="SPECIAL PANG!";
+
+  if(sa==="mega"||sb==="mega"){
+    pangAllPositions().forEach((x)=>removal.add(x));
+    label="MEGA PANG!";
+  }else if(sa==="mirror"&&sb==="mirror"){
+    pangAllPositions().forEach((x)=>removal.add(x));
+    label="ALL PANG!";
+  }else if(sa==="mirror"||sb==="mirror"){
+    const mirrorIsA=sa==="mirror";
+    const other=mirrorIsA?b:a;
+    const otherSpecial=other?.special||null;
+    const targetKey=other?.key;
+    if(otherSpecial){
+      for(let r=0;r<PANG_SIZE;r++)for(let c=0;c<PANG_SIZE;c++){
+        const cell=pangState.board[r][c];
+        if(cell?.key===targetKey){
+          cell.special=otherSpecial;
+          removal.add(`${r},${c}`);
+        }
+      }
+      removal.add(`${r1},${c1}`);removal.add(`${r2},${c2}`);
+      label=`MIRROR × ${PANG_SPECIAL_ICON[otherSpecial]||"SPECIAL"}`;
+    }else{
+      for(let r=0;r<PANG_SIZE;r++)for(let c=0;c<PANG_SIZE;c++){
+        if(pangState.board[r][c]?.key===targetKey)removal.add(`${r},${c}`);
+      }
+      removal.add(`${r1},${c1}`);removal.add(`${r2},${c2}`);
+      label="MIRROR PANG!";
+    }
+  }else{
+    const pair=[sa,sb].sort().join("+");
+    removal.add(`${r1},${c1}`);removal.add(`${r2},${c2}`);
+
+    if(pair==="star+star"){
+      pangAddCross(removal,r1,c1,0);
+      pangAddCross(removal,r2,c2,0);
+      label="DOUBLE STAR!";
+    }else if(pair==="moon+moon"){
+      pangRandomTargets(10,removal).forEach(({r,c})=>removal.add(`${r},${c}`));
+      label="DOUBLE MOON!";
+    }else if(pair==="sun+sun"){
+      pangAllPositions().forEach((x)=>removal.add(x));
+      label="DOUBLE SUN!";
+    }else if(pair==="moon+star"){
+      const target=pangRandomTargets(1,removal)[0]||{r:r2,c:c2};
+      pangAddCross(removal,target.r,target.c,0);
+      pangRandomTargets(4,removal).forEach(({r,c})=>removal.add(`${r},${c}`));
+      label="MOON STAR!";
+    }else if(pair==="moon+sun"){
+      const target=pangRandomTargets(1,removal)[0]||{r:r2,c:c2};
+      pangAddArea(removal,target.r,target.c,2);
+      label="MOON SUN!";
+    }else if(pair==="star+sun"){
+      pangAddCross(removal,r2,c2,1);
+      pangAddArea(removal,r2,c2,1);
+      label="SUPER CROSS!";
+    }else{
+      return false;
+    }
+  }
+
+  const expanded=pangExpandedRemoval(removal);
+  pangState.score+=expanded.size*80;
+  showPangComboLabel(label);
+  if(expanded.size>=10){
+    document.body.classList.add("game-shake");
+    document.getElementById("pangFlash")?.classList.add("on");
+    setTimeout(()=>{
+      document.body.classList.remove("game-shake");
+      document.getElementById("pangFlash")?.classList.remove("on");
+    },320);
+  }
+
+  expanded.forEach((key)=>{
+    const [r,c]=key.split(",").map(Number);
+    pangState.board[r][c]=null;
+  });
+
+  const tokens=pangTokens();
+  for(let c=0;c<PANG_SIZE;c++){
+    const col=[];
+    for(let r=PANG_SIZE-1;r>=0;r--)if(pangState.board[r][c])col.push(pangState.board[r][c]);
+    for(let r=PANG_SIZE-1,i=0;r>=0;r--,i++)pangState.board[r][c]=col[i]||randomPangCell(tokens);
+  }
+
+  renderPangBoard();
+  await new Promise((resolve)=>setTimeout(resolve,180));
+  await resolvePangMatches();
+  return true;
+}
+
 async function pangSwapAndResolve(r1, c1, r2, c2) {
   if (!pangState.active || pangState.busy || pangState.moves <= 0) return;
   pangState.busy = true;
@@ -2225,45 +2425,8 @@ async function pangSwapAndResolve(r1, c1, r2, c2) {
   swapPangCells(r1,c1,r2,c2);
   renderPangBoard();
 
-  let valid = false;
-
-  if (a?.special && b?.special) {
-    valid = true;
-    const removal = new Set([`${r1},${c1}`,`${r2},${c2}`]);
-    if (a.special === "mirror" && b.special === "mirror" || a.special === "mega" || b.special === "mega") {
-      for (let r=0;r<PANG_SIZE;r++) for (let c=0;c<PANG_SIZE;c++) removal.add(`${r},${c}`);
-    }
-    const expanded = pangExpandedRemoval(removal);
-    pangState.score += expanded.size * 70;
-    expanded.forEach((key) => {
-      const [r,c] = key.split(",").map(Number);
-      pangState.board[r][c] = null;
-    });
-    const tokens = pangTokens();
-    for (let c=0;c<PANG_SIZE;c++) {
-      const col=[];
-      for (let r=PANG_SIZE-1;r>=0;r--) if (pangState.board[r][c]) col.push(pangState.board[r][c]);
-      for (let r=PANG_SIZE-1,i=0;r>=0;r--,i++) pangState.board[r][c]=col[i]||randomPangCell(tokens);
-    }
-    document.body.classList.add("game-shake");
-    setTimeout(()=>document.body.classList.remove("game-shake"),300);
-    renderPangBoard();
-    await resolvePangMatches();
-  } else if (a?.special === "mirror" || b?.special === "mirror") {
-    valid = true;
-    const mirrorPos = a.special === "mirror" ? {r:r2,c:c2,cell:a} : {r:r1,c:c1,cell:b};
-    const target = a.special === "mirror" ? b.key : a.key;
-    const removal = new Set();
-    for (let r=0;r<PANG_SIZE;r++) for (let c=0;c<PANG_SIZE;c++) if (pangState.board[r][c]?.key === target) removal.add(`${r},${c}`);
-    removal.add(`${mirrorPos.r},${mirrorPos.c}`);
-    const expanded = pangExpandedRemoval(removal);
-    pangState.score += expanded.size * 60;
-    expanded.forEach((key) => { const [r,c]=key.split(",").map(Number); pangState.board[r][c]=null; });
-    const tokens=pangTokens();
-    for(let c=0;c<PANG_SIZE;c++){ const col=[]; for(let r=PANG_SIZE-1;r>=0;r--) if(pangState.board[r][c]) col.push(pangState.board[r][c]); for(let r=PANG_SIZE-1,i=0;r>=0;r--,i++) pangState.board[r][c]=col[i]||randomPangCell(tokens);}
-    renderPangBoard();
-    await resolvePangMatches();
-  } else {
+  let valid = await resolvePangSpecialSwap(a,b,r1,c1,r2,c2);
+  if (!valid) {
     valid = await resolvePangMatches();
   }
 
@@ -2687,7 +2850,7 @@ function spawnTetrisPiece() {
   const piece = { type, x:3, y:0, rot:0 };
   tetrisState.current = piece;
   tetrisState.canHold = true;
-  tetrisState.lockStart = null; tetrisState.lockResets=0; tetrisState.lastAction="spawn";
+  tetrisState.lockStart = null; tetrisState.lockResets=0; tetrisState.lastAction="spawn"; tetrisState.lastRotation=null;
   if (!tetrisValid(piece)) finishTetrisGame(false);
 }
 
@@ -2703,25 +2866,58 @@ function tryTetrisMove(dx,dy) {
   if(!p||!tetrisState.active||tetrisState.paused)return false;
   if(tetrisValid(p,p.x+dx,p.y+dy,p.rot)){
     p.x+=dx;p.y+=dy;tetrisState.lastAction=dy>0?"soft":"move";
+    tetrisState.lastRotation=null;
     if(tetrisState.lockStart && tetrisState.lockResets<15){tetrisState.lockStart=performance.now();tetrisState.lockResets++;}
     return true;
   }
   return false;
 }
 
-const TETRIS_KICKS = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0],[-1,-1],[1,-1],[0,-2]];
+const SRS_JLSTZ = {
+  "0>1":[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  "1>0":[[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  "1>2":[[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  "2>1":[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  "2>3":[[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  "3>2":[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  "3>0":[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  "0>3":[[0,0],[1,0],[1,-1],[0,2],[1,2]]
+};
+
+const SRS_I = {
+  "0>1":[[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+  "1>0":[[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+  "1>2":[[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
+  "2>1":[[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+  "2>3":[[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+  "3>2":[[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+  "3>0":[[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+  "0>3":[[0,0],[-1,0],[2,0],[-1,-2],[2,1]]
+};
+
+function srsKickTests(type, from, to) {
+  if (type === "O") return [[0,0]];
+  const key = `${from}>${to}`;
+  return type === "I" ? (SRS_I[key] || [[0,0]]) : (SRS_JLSTZ[key] || [[0,0]]);
+}
 
 function rotateTetris(dir) {
   const p=tetrisState.current;
-  if(!p||!tetrisState.active||tetrisState.paused)return;
-  const next=(p.rot+(dir>0?1:3))%4;
-  for(const [kx,ky] of TETRIS_KICKS){
+  if(!p||!tetrisState.active||tetrisState.paused)return false;
+  const from=p.rot;
+  const next=(from+(dir>0?1:3))%4;
+  const tests=srsKickTests(p.type,from,next);
+  for(let i=0;i<tests.length;i++){
+    const [kx,ky]=tests[i];
     if(tetrisValid(p,p.x+kx,p.y+ky,next)){
-      p.x+=kx;p.y+=ky;p.rot=next;tetrisState.lastAction="rotate";
+      p.x+=kx;p.y+=ky;p.rot=next;
+      tetrisState.lastAction="rotate";
+      tetrisState.lastRotation={from,to:next,kickIndex:i};
       if(tetrisState.lockStart&&tetrisState.lockResets<15){tetrisState.lockStart=performance.now();tetrisState.lockResets++;}
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 function holdTetris() {
@@ -2740,13 +2936,31 @@ function holdTetris() {
   renderTetrisSide();
 }
 
+function tetrisCornerOccupied(x,y){
+  return x<0||x>=TETRIS_COLS||y>=TETRIS_ROWS||(y>=0&&Boolean(tetrisState.board[y][x]));
+}
+
 function detectTSpin(piece, cleared) {
-  if(piece.type!=="T"||tetrisState.lastAction!=="rotate")return null;
+  if(piece.type!=="T"||!tetrisState.lastRotation)return null;
   const cx=piece.x+1, cy=piece.y+1;
-  const corners=[[cx-1,cy-1],[cx+1,cy-1],[cx-1,cy+1],[cx+1,cy+1]];
-  const occupied=corners.filter(([x,y])=>x<0||x>=TETRIS_COLS||y>=TETRIS_ROWS||(y>=0&&tetrisState.board[y][x])).length;
+  const tl=tetrisCornerOccupied(cx-1,cy-1);
+  const tr=tetrisCornerOccupied(cx+1,cy-1);
+  const bl=tetrisCornerOccupied(cx-1,cy+1);
+  const br=tetrisCornerOccupied(cx+1,cy+1);
+  const occupied=[tl,tr,bl,br].filter(Boolean).length;
   if(occupied<3)return null;
-  return cleared===0?"TSPIN0":`TSPIN${cleared}`;
+
+  let front;
+  if(piece.rot===0) front=[tl,tr];
+  else if(piece.rot===1) front=[tr,br];
+  else if(piece.rot===2) front=[bl,br];
+  else front=[tl,bl];
+
+  const full=front[0]&&front[1]||tetrisState.lastRotation.kickIndex===4;
+  return {
+    mini: !full,
+    cleared
+  };
 }
 
 function lockTetrisPiece() {
@@ -2765,8 +2979,14 @@ function lockTetrisPiece() {
 
   let base=0, difficult=false;
   if(tspin){
-    const map={TSPIN0:400,TSPIN1:800,TSPIN2:1200,TSPIN3:1600};
-    base=map[tspin]||0; difficult=cleared>0; tetrisState.stats.tspin++;
+    if(tspin.mini){
+      base=({0:100,1:200,2:400})[cleared]||0;
+      tetrisState.stats.tspinMini=(tetrisState.stats.tspinMini||0)+1;
+    }else{
+      base=({0:400,1:800,2:1200,3:1600})[cleared]||0;
+      tetrisState.stats.tspin++;
+    }
+    difficult=cleared>0;
   }else{
     base=({0:0,1:100,2:300,3:500,4:800})[cleared]||0;
     difficult=cleared===4;
@@ -2799,7 +3019,9 @@ function lockTetrisPiece() {
 function hardDropTetris() {
   if(!tetrisState.active||tetrisState.paused||!tetrisState.current)return;
   let d=0;
+  const preservedRotation=tetrisState.lastRotation;
   while(tryTetrisMove(0,1))d++;
+  tetrisState.lastRotation=preservedRotation;
   tetrisState.score+=d*2;
   tetrisState.lastAction="hard";
   lockTetrisPiece();
@@ -2868,7 +3090,7 @@ function renderTetrisHud(){
 function renderTetrisStatus(){
   const id=document.getElementById("tetrisCharacterSelect")?.value||saveData.gameRecords.tetris?.selectedCharacter||"";
   document.getElementById("tetrisBonusText").textContent=`선택 보너스 +${Math.round(selectedCharacterRewardBonus(id)*100)}%`;
-  document.getElementById("tetrisRecordBox").innerHTML=`최고 점수 <strong>${formatPoints(saveData.gameRecords.tetris?.highScore||0)}</strong> · 최고 라인 <strong>${saveData.gameRecords.tetris?.bestLines||0}</strong> · T-SPIN ${saveData.gameRecords.tetris?.tSpinCount||0} · TETRIS ${saveData.gameRecords.tetris?.tetrisCount||0} · PERFECT CLEAR ${saveData.gameRecords.tetris?.perfectClearCount||0}`;
+  document.getElementById("tetrisRecordBox").innerHTML=`최고 점수 <strong>${formatPoints(saveData.gameRecords.tetris?.highScore||0)}</strong> · 최고 라인 <strong>${saveData.gameRecords.tetris?.bestLines||0}</strong> · T-SPIN ${saveData.gameRecords.tetris?.tSpinCount||0} · MINI ${saveData.gameRecords.tetris?.tSpinMiniCount||0} · TETRIS ${saveData.gameRecords.tetris?.tetrisCount||0} · PERFECT CLEAR ${saveData.gameRecords.tetris?.perfectClearCount||0}`;
 }
 
 document.getElementById("tetrisCharacterSelect")?.addEventListener("change",(e)=>{
@@ -2883,7 +3105,7 @@ function startTetrisGame(){
   tetrisState={
     active:true,paused:false,board:emptyTetrisBoard(),current:null,queue:[],bag:[],hold:null,canHold:true,
     score:0,lines:0,level:1,combo:-1,b2b:false,lastDrop:performance.now(),lastAction:"",lockStart:null,lockResets:0,
-    raf:0,selectedId,stats:{tspin:0,tetris:0,pc:0},touch:null
+    raf:0,selectedId,stats:{tspin:0,tspinMini:0,tetris:0,pc:0},touch:null
   };
   ensureTetrisQueue();spawnTetrisPiece();renderTetrisHud();drawTetris();
   document.getElementById("tetrisStartButton").disabled=true;
@@ -2908,6 +3130,7 @@ function finishTetrisGame(quit=false){
   rec.highScore=Math.max(rec.highScore||0,tetrisState.score);
   rec.bestLines=Math.max(rec.bestLines||0,tetrisState.lines);
   rec.tSpinCount=(rec.tSpinCount||0)+tetrisState.stats.tspin;
+  rec.tSpinMiniCount=(rec.tSpinMiniCount||0)+(tetrisState.stats.tspinMini||0);
   rec.tetrisCount=(rec.tetrisCount||0)+tetrisState.stats.tetris;
   rec.perfectClearCount=(rec.perfectClearCount||0)+tetrisState.stats.pc;
   if(reward)addPoints(reward);else saveGame();
@@ -3233,10 +3456,16 @@ function petDialogueForState(){
   const p=saveData.pet;if(!p)return "";
   if(p.dead)return petDialogueV6("death", `... ${p.deathReason||"알 수 없는 이유"}로 무지개다리를 건넜어요.`);
   if(p.sick)return petDialogueV6("sick", "몸이 좋지 않은 것 같아...");
+  const now=Date.now();
+  const playGap=now-(p.lastPlay||p.bornAt);
+  const walkGap=now-(p.lastWalk||p.bornAt);
+  if(playGap>=24*3600000&&walkGap>=24*3600000)return petDialogueV6("neglected", "같이 놀고 산책도 가고 싶어...");
   if(p.hunger>=75&&p.dirt>=70)return petDialogueV6("both", "배도 고프고 씻고 싶어...");
   if(p.hunger>=75)return petDialogueV6("hunger", "꼬르륵... 배고파!");
   if(p.dirt>=70)return petDialogueV6("dirty", "꼬질꼬질해졌어...");
   if(p.mood<=30)return petDialogueV6("sad", "조금 외로운 것 같아.");
+  if(playGap>=12*3600000)return petDialogueV6("want_play", "같이 놀아줘!");
+  if(walkGap>=24*3600000)return petDialogueV6("want_walk", "산책 가고 싶어!");
   if(p.mood>=75&&p.hunger<50&&p.dirt<50)return petDialogueV6("happy", "오늘도 같이 놀자!");
   return petDialogueV6("idle", `${p.name||"펫"}이 당신을 바라보고 있어요.`);
 }
@@ -3292,7 +3521,11 @@ function addPetExp(amount){
   const beforeStage=petStage(p).name;
   p.exp=Math.min(6800,p.exp+amount);
   const afterStage=petStage(p).name;
-  if(beforeStage!==afterStage)setMessage("petActionMessage",`${afterStage} 단계로 성장했어요!`,"success");
+  if(beforeStage!==afterStage){
+    setMessage("petActionMessage",`${afterStage} 단계로 성장했어요!`,"success");
+    const dialogue=document.getElementById("petDialogue");
+    if(dialogue)dialogue.textContent=petDialogueV6(beforeStage==="알"?"hatch":"grow",beforeStage==="알"?"알에서 깨어났어!":`${afterStage} 단계로 성장했어!`);
+  }
   if(p.exp>=6800&&!p.completed){
     p.completed=true;
     saveData.completedPets.push({id:p.id,name:p.name,completedAt:Date.now()});
@@ -3307,27 +3540,94 @@ document.getElementById("petChangeButton")?.addEventListener("click",()=>{
   saveData.pet=null;saveGame();renderPet();
 });
 
-document.getElementById("petVisual")?.addEventListener("click",(event)=>{
+function touchPetAtRatio(ratio=.5){
   const p=saveData.pet;if(!p||p.dead)return;
-  const rect=event.currentTarget.getBoundingClientRect(),ratio=(event.clientY-rect.top)/rect.height;
   document.getElementById("petDialogue").textContent=ratio<.35?petDialogueV6("touch_head","머리를 쓰다듬어주니 기분 좋아 보여!"):ratio<.60?petDialogueV6("touch_face","눈이 마주쳤다!"):petDialogueV6("touch_body","몸을 톡톡 건드리니 꼬물거린다.");
+}
+
+document.getElementById("petVisual")?.addEventListener("click",(event)=>{
+  const rect=event.currentTarget.getBoundingClientRect(),ratio=(event.clientY-rect.top)/rect.height;
+  touchPetAtRatio(ratio);
 });
+document.getElementById("petVisual")?.addEventListener("keydown",(event)=>{
+  if(event.key==="Enter"||event.key===" "){
+    event.preventDefault();
+    touchPetAtRatio(.5);
+  }
+});
+
+function ownedRGiftCards(){
+  return characters
+    .filter((c)=>c.rarity==="R"&&getOwnedCount(c.id)>0)
+    .sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+}
+
+function closePetGiftModal(){
+  document.getElementById("petGiftModal")?.classList.add("hidden");
+  if(document.querySelectorAll(".modal-backdrop:not(.hidden)").length===0)document.body.classList.remove("modal-open");
+}
+
+function renderPetGiftList(){
+  const listEl=document.getElementById("petGiftList");
+  if(!listEl)return;
+  const q=(document.getElementById("petGiftSearchInput")?.value||"").trim().toLowerCase();
+  const list=ownedRGiftCards().filter((c)=>!q||c.name.toLowerCase().includes(q));
+  listEl.innerHTML=list.length?list.map((char)=>`
+    <div class="pet-gift-card">
+      ${characterDisplayImage(char)?`<img src="${escapeHTML(characterDisplayImage(char))}" alt="${escapeHTML(char.name)}">`:`<div class="pet-gift-fallback">R</div>`}
+      <div><strong>${escapeHTML(char.name)}</strong><small>보유 ${getOwnedCount(char.id)}장</small></div>
+      <button type="button" data-pet-gift-id="${char.id}">선물</button>
+    </div>
+  `).join(""):`<div class="card">조건에 맞는 보유 R 카드가 없어요.</div>`;
+  listEl.querySelectorAll("[data-pet-gift-id]").forEach((button)=>button.addEventListener("click",()=>givePetRGift(button.dataset.petGiftId)));
+}
+
+function openPetGiftModal(){
+  if(!ownedRGiftCards().length){alert("선물할 R 캐릭터 카드가 없어요.");return;}
+  const input=document.getElementById("petGiftSearchInput");if(input)input.value="";
+  setMessage("petGiftMessage","");
+  renderPetGiftList();
+  document.getElementById("petGiftModal")?.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function specificGiftDialogue(type,charId){
+  const list=type?.dialogues?.gift_items?.[charId];
+  return Array.isArray(list)&&list.length?randomChoice(list):null;
+}
+
+function givePetRGift(charId){
+  const p=saveData.pet;
+  const char=characters.find((c)=>c.id===charId);
+  if(!p||p.dead||p.completed||!char||char.rarity!=="R"||getOwnedCount(charId)<1)return;
+  if(petCooldownRemaining("gift")>0)return;
+  const now=Date.now();
+  const wasSick=Boolean(p.sick),wasMoodZero=p.mood<=0;
+  saveData.characters[char.id]=getOwnedCount(char.id)-1;
+  p.affection=Math.min(100,p.affection+10);
+  p.mood=Math.min(100,p.mood+5);
+  p.actionAt.gift=now;p.lastCare=now;p.sick=false;
+  addPetExp(PET_ACTION_EXP.gift);
+  saveGame();
+  closePetGiftModal();
+  renderEverything();
+  const type=getPetTypeV6(p);
+  const line=specificGiftDialogue(type,char.id)||petDialogueV6("gift",`${char.name} 선물 고마워!`);
+  const dialogue=document.getElementById("petDialogue");
+  if(dialogue)dialogue.textContent=wasSick||wasMoodZero?petDialogueV6("recover",line):line;
+}
+
+document.getElementById("closePetGiftModal")?.addEventListener("click",closePetGiftModal);
+document.getElementById("petGiftModal")?.addEventListener("click",(e)=>{if(e.target.id==="petGiftModal")closePetGiftModal();});
+document.getElementById("petGiftSearchInput")?.addEventListener("input",renderPetGiftList);
 
 document.querySelectorAll("[data-pet-action]").forEach((button)=>button.addEventListener("click",()=>{
   const action=button.dataset.petAction,p=saveData.pet;if(!p||p.dead||p.completed||petCooldownRemaining(action)>0)return;
   const now=Date.now();
 
-  if(action==="gift"){
-    const rCards=characters.filter((c)=>c.rarity==="R"&&getOwnedCount(c.id)>0);
-    if(!rCards.length)return alert("선물할 R 캐릭터 카드가 없어요.");
-    const names=rCards.map((c,i)=>`${i+1}. ${c.name} (${getOwnedCount(c.id)}장)`).join("\n");
-    const pick=prompt(`선물할 R 카드를 번호로 선택하세요.\n${names}`,"1");
-    const char=rCards[Number(pick)-1];if(!char)return;
-    saveData.characters[char.id]=getOwnedCount(char.id)-1;
-    p.affection=Math.min(100,p.affection+10);p.mood=Math.min(100,p.mood+5);
-    document.getElementById("petDialogue").textContent=petDialogueV6("gift", `${char.name} 선물 고마워!`);
-  }
+  if(action==="gift"){openPetGiftModal();return;}
 
+  const wasSick=Boolean(p.sick),wasMoodZero=p.mood<=0;
   if(action==="feed"){if(p.hunger<10)return;p.hunger=Math.max(0,p.hunger-30);document.getElementById("petDialogue").textContent=petDialogueV6("feed", "냠냠! 맛있어!");}
   if(action==="wash"){p.dirt=0;document.getElementById("petDialogue").textContent=petDialogueV6("wash", "깨끗해졌어!");}
   if(action==="play"){p.affection=Math.min(100,p.affection+5);p.mood=Math.min(100,p.mood+25);p.lastPlay=now;document.getElementById("petDialogue").textContent=petDialogueV6("play", "더 놀자!");}
@@ -3345,6 +3645,10 @@ document.querySelectorAll("[data-pet-action]").forEach((button)=>button.addEvent
   }
 
   p.actionAt[action]=now;p.lastCare=now;p.sick=false;addPetExp(PET_ACTION_EXP[action]);saveGame();renderEverything();
+  if(wasSick||wasMoodZero){
+    const dialogue=document.getElementById("petDialogue");
+    if(dialogue)dialogue.textContent=petDialogueV6("recover","다시 기운이 나는 것 같아!");
+  }
 }));
 
 setInterval(()=>{if(saveData.pet)renderPet();},60000);
@@ -3740,13 +4044,46 @@ const PET_DIALOGUE_KEYS=["feed","wash","play","walk","gift","hatch","grow","hung
 function commitPetDialogueDraftV6(){const key=document.getElementById("petDialogueTypeSelect")?.dataset.currentKey||document.getElementById("petDialogueTypeSelect")?.value;if(!key)return;petDialogueDrafts[key]=(document.getElementById("petDialogueTextarea")?.value||"").split("\n").map((x)=>x.trim()).filter(Boolean);}
 function loadPetDialogueTextareaV6(){const select=document.getElementById("petDialogueTypeSelect"),area=document.getElementById("petDialogueTextarea");if(!select||!area)return;select.dataset.currentKey=select.value;area.value=(petDialogueDrafts[select.value]||[]).join("\n");}
 document.getElementById("petDialogueTypeSelect")?.addEventListener("change",(e)=>{const prev=e.currentTarget.dataset.currentKey;if(prev)petDialogueDrafts[prev]=(document.getElementById("petDialogueTextarea")?.value||"").split("\n").map((x)=>x.trim()).filter(Boolean);loadPetDialogueTextareaV6();});
-function resetPetTypeFormV6(){document.getElementById("petTypeForm")?.reset();document.getElementById("petTypeEditId").value="";document.getElementById("petTypePublicInput").checked=true;petDialogueDrafts={};loadPetDialogueTextareaV6();document.getElementById("cancelPetTypeEditButton")?.classList.add("hidden");setMessage("petTypeMessage","");}
-function renderAdminPetTypesV6(){const el=document.getElementById("adminPetTypeList");if(!el||!isAdmin)return;el.innerHTML=petTypes.length?petTypes.map((p)=>`<div class="ops-list-row"><div class="ops-list-thumb">${p.images?.egg_base?`<img src="${escapeHTML(p.images.egg_base)}">`:"🥚"}</div><div class="ops-list-info"><strong>${escapeHTML(p.name)}</strong><small>${p.is_public?"공개":"비공개"} · 순서 ${p.sort_order||0}</small></div><div class="ops-list-actions"><button data-pet-edit="${p.id}">수정</button><button class="danger" data-pet-delete="${p.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 펫이 없어요.</div>`;el.querySelectorAll("[data-pet-edit]").forEach((b)=>b.addEventListener("click",()=>editPetTypeV6(b.dataset.petEdit)));el.querySelectorAll("[data-pet-delete]").forEach((b)=>b.addEventListener("click",()=>void deletePetTypeV6(b.dataset.petDelete)));}
-function editPetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p)return;document.getElementById("petTypeEditId").value=p.id;document.getElementById("petTypeNameInput").value=p.name||"";document.getElementById("petTypeDescriptionInput").value=p.description||"";document.getElementById("petTypeSortInput").value=p.sort_order||0;document.getElementById("petTypePublicInput").checked=Boolean(p.is_public);petDialogueDrafts=deepClone(p.dialogues||{});loadPetDialogueTextareaV6();document.getElementById("cancelPetTypeEditButton")?.classList.remove("hidden");document.getElementById("petTypeForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
-async function deletePetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p||!confirm("이 펫 종류를 삭제할까요? 기존 사용자의 해당 펫이 정상 표시되지 않을 수 있어요."))return;const{error}=await supabaseClient.from("pet_types").delete().eq("id",id);if(error)return alert(error.message);await Promise.all(Object.values(p.images||{}).map((url)=>deleteStorageUrlV6("pet-assets",url)));await loadV6PublicData();renderAdminPetTypesV6();}
-document.getElementById("petTypeForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;commitPetDialogueDraftV6();const id=document.getElementById("petTypeEditId").value,existing=petTypes.find((p)=>p.id===id);try{setMessage("petTypeMessage","이미지 업로드/저장 중...");const images={...(existing?.images||{})};for(const input of document.querySelectorAll("[data-pet-image-key]")){const file=input.files?.[0];if(!file)continue;if(file.size>10*1024*1024)throw new Error("펫 이미지는 각 10MB 이하만 가능해요.");const key=input.dataset.petImageKey,newUrl=await uploadPublicFileV6("pet-assets",file,`pets/${id||"new"}`);if(images[key])await deleteStorageUrlV6("pet-assets",images[key]);images[key]=newUrl;}if(!existing&&(!images.egg_base||!images.baby_base||!images.child_base||!images.adult_base))throw new Error("새 펫은 알/아기/어린이/성인 기본 이미지 4장이 필수예요.");const payload={name:document.getElementById("petTypeNameInput").value.trim(),description:document.getElementById("petTypeDescriptionInput").value.trim(),is_public:document.getElementById("petTypePublicInput").checked,sort_order:Math.floor(Number(document.getElementById("petTypeSortInput").value)||0),images,dialogues:petDialogueDrafts};const res=id?await supabaseClient.from("pet_types").update(payload).eq("id",id):await supabaseClient.from("pet_types").insert(payload);if(res.error)throw res.error;resetPetTypeFormV6();await loadV6PublicData();renderAdminPetTypesV6();setMessage("petTypeMessage","펫 저장 완료!","success");}catch(error){setMessage("petTypeMessage",error.message,"error");}});document.getElementById("resetPetTypeFormButton")?.addEventListener("click",resetPetTypeFormV6);document.getElementById("cancelPetTypeEditButton")?.addEventListener("click",resetPetTypeFormV6);
+function renderPetGiftItemAdminV7(){
+  const select=document.getElementById("petGiftItemCharacterSelect");
+  const area=document.getElementById("petGiftItemDialogueTextarea");
+  if(!select||!area)return;
+  const current=select.value;
+  const rChars=characters.filter((c)=>c.rarity==="R").sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+  select.innerHTML=`<option value="">R 캐릭터 선택</option>`+rChars.map((c)=>`<option value="${c.id}">${escapeHTML(c.name)}</option>`).join("");
+  if(rChars.some((c)=>c.id===current))select.value=current;
+  area.value=select.value?(petGiftItemDialogueDrafts[select.value]||[]).join("\n"):"";
+}
 
-function renderV6AdminPanels(){if(!isAdmin)return;const bm=document.getElementById("bannerMasterInput");if(bm)bm.checked=bannerMasterEnabledV6;renderAdminBannerListV6();renderAdminRhythmSongsV6();renderAdminPetTypesV6();if(!adminUsers.length)void loadAdminUsersV6();}
+function savePetGiftItemDraftV7(){
+  const select=document.getElementById("petGiftItemCharacterSelect");
+  const area=document.getElementById("petGiftItemDialogueTextarea");
+  const status=document.getElementById("petGiftItemDialogueStatus");
+  if(!select?.value){if(status)status.textContent="R 캐릭터를 먼저 선택하세요.";return;}
+  petGiftItemDialogueDrafts[select.value]=(area?.value||"").split("\n").map((x)=>x.trim()).filter(Boolean);
+  if(status)status.textContent="임시 저장됨 · 아래 펫 저장 버튼을 눌러야 서버에 반영돼요.";
+}
+
+document.getElementById("petGiftItemCharacterSelect")?.addEventListener("change",(e)=>{
+  const area=document.getElementById("petGiftItemDialogueTextarea");
+  if(area)area.value=e.target.value?(petGiftItemDialogueDrafts[e.target.value]||[]).join("\n"):"";
+});
+document.getElementById("savePetGiftItemDialogueButton")?.addEventListener("click",savePetGiftItemDraftV7);
+document.getElementById("clearPetGiftItemDialogueButton")?.addEventListener("click",()=>{
+  const select=document.getElementById("petGiftItemCharacterSelect"),area=document.getElementById("petGiftItemDialogueTextarea"),status=document.getElementById("petGiftItemDialogueStatus");
+  if(!select?.value)return;
+  petGiftItemDialogueDrafts[select.value]=[];
+  if(area)area.value="";
+  if(status)status.textContent="이 카드의 전용 대사를 비웠어요. 펫 저장을 눌러 반영하세요.";
+});
+
+function resetPetTypeFormV6(){document.getElementById("petTypeForm")?.reset();document.getElementById("petTypeEditId").value="";document.getElementById("petTypePublicInput").checked=true;petDialogueDrafts={};petGiftItemDialogueDrafts={};loadPetDialogueTextareaV6();renderPetGiftItemAdminV7();document.getElementById("cancelPetTypeEditButton")?.classList.add("hidden");setMessage("petTypeMessage","");}
+function renderAdminPetTypesV6(){const el=document.getElementById("adminPetTypeList");if(!el||!isAdmin)return;el.innerHTML=petTypes.length?petTypes.map((p)=>`<div class="ops-list-row"><div class="ops-list-thumb">${p.images?.egg_base?`<img src="${escapeHTML(p.images.egg_base)}">`:"🥚"}</div><div class="ops-list-info"><strong>${escapeHTML(p.name)}</strong><small>${p.is_public?"공개":"비공개"} · 순서 ${p.sort_order||0}</small></div><div class="ops-list-actions"><button data-pet-edit="${p.id}">수정</button><button class="danger" data-pet-delete="${p.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 펫이 없어요.</div>`;el.querySelectorAll("[data-pet-edit]").forEach((b)=>b.addEventListener("click",()=>editPetTypeV6(b.dataset.petEdit)));el.querySelectorAll("[data-pet-delete]").forEach((b)=>b.addEventListener("click",()=>void deletePetTypeV6(b.dataset.petDelete)));}
+function editPetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p)return;document.getElementById("petTypeEditId").value=p.id;document.getElementById("petTypeNameInput").value=p.name||"";document.getElementById("petTypeDescriptionInput").value=p.description||"";document.getElementById("petTypeSortInput").value=p.sort_order||0;document.getElementById("petTypePublicInput").checked=Boolean(p.is_public);petDialogueDrafts=deepClone(p.dialogues||{});petGiftItemDialogueDrafts=deepClone(p.dialogues?.gift_items||{});delete petDialogueDrafts.gift_items;loadPetDialogueTextareaV6();renderPetGiftItemAdminV7();document.getElementById("cancelPetTypeEditButton")?.classList.remove("hidden");document.getElementById("petTypeForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
+async function deletePetTypeV6(id){const p=petTypes.find((x)=>x.id===id);if(!p||!confirm("이 펫 종류를 삭제할까요? 기존 사용자의 해당 펫이 정상 표시되지 않을 수 있어요."))return;const{error}=await supabaseClient.from("pet_types").delete().eq("id",id);if(error)return alert(error.message);await Promise.all(Object.values(p.images||{}).map((url)=>deleteStorageUrlV6("pet-assets",url)));await loadV6PublicData();renderAdminPetTypesV6();}
+document.getElementById("petTypeForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;commitPetDialogueDraftV6();const id=document.getElementById("petTypeEditId").value,existing=petTypes.find((p)=>p.id===id);try{setMessage("petTypeMessage","이미지 업로드/저장 중...");const images={...(existing?.images||{})};for(const input of document.querySelectorAll("[data-pet-image-key]")){const file=input.files?.[0];if(!file)continue;if(file.size>10*1024*1024)throw new Error("펫 이미지는 각 10MB 이하만 가능해요.");const key=input.dataset.petImageKey,newUrl=await uploadPublicFileV6("pet-assets",file,`pets/${id||"new"}`);if(images[key])await deleteStorageUrlV6("pet-assets",images[key]);images[key]=newUrl;}if(!existing&&(!images.egg_base||!images.baby_base||!images.child_base||!images.adult_base))throw new Error("새 펫은 알/아기/어린이/성인 기본 이미지 4장이 필수예요.");const payload={name:document.getElementById("petTypeNameInput").value.trim(),description:document.getElementById("petTypeDescriptionInput").value.trim(),is_public:document.getElementById("petTypePublicInput").checked,sort_order:Math.floor(Number(document.getElementById("petTypeSortInput").value)||0),images,dialogues:{...petDialogueDrafts,gift_items:petGiftItemDialogueDrafts}};const res=id?await supabaseClient.from("pet_types").update(payload).eq("id",id):await supabaseClient.from("pet_types").insert(payload);if(res.error)throw res.error;resetPetTypeFormV6();await loadV6PublicData();renderAdminPetTypesV6();setMessage("petTypeMessage","펫 저장 완료!","success");}catch(error){setMessage("petTypeMessage",error.message,"error");}});document.getElementById("resetPetTypeFormButton")?.addEventListener("click",resetPetTypeFormV6);document.getElementById("cancelPetTypeEditButton")?.addEventListener("click",resetPetTypeFormV6);
+
+function renderV6AdminPanels(){if(!isAdmin)return;renderPetGiftItemAdminV7();const bm=document.getElementById("bannerMasterInput");if(bm)bm.checked=bannerMasterEnabledV6;renderAdminBannerListV6();renderAdminRhythmSongsV6();renderAdminPetTypesV6();if(!adminUsers.length)void loadAdminUsersV6();}
 
 
 /* =========================================================

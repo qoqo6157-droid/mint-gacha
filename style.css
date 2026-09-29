@@ -981,3 +981,183 @@ body.game-shake { animation: gameShake .24s linear; }
 @media(max-width:600px){.admin-toolbar,.ops-grid,.dialogue-admin-editor{grid-template-columns:1fr}.admin-user-stats{grid-template-columns:1fr 1fr}.pet-image-admin-grid{grid-template-columns:1fr}.event-banner.custom-banner .event-banner-text{max-width:82%}.banner-arrow{width:32px;height:32px;font-size:22px}}
 
 .admin-title-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.admin-title-actions .checkbox-field{margin:0;padding:6px 9px;border:1px solid #dbeee7;border-radius:10px;background:#fafffd}
+
+
+/* =========================================================
+   V7 보강 UI
+========================================================= */
+
+.home-character-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.small-button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.pet-gift-modal {
+  width: min(560px, 100%);
+}
+
+.pet-gift-search {
+  width: 100%;
+  margin: 4px 0 12px;
+  padding: 11px 13px;
+  border: 1px solid #d7ebe4;
+  border-radius: 12px;
+  outline: none;
+  background: #fbfffd;
+  color: #334e46;
+}
+
+.pet-gift-search:focus {
+  border-color: #6ad5b3;
+  box-shadow: 0 0 0 3px rgba(79, 202, 164, .12);
+}
+
+.pet-gift-list {
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.pet-gift-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 9px;
+  border: 1px solid #dcefe8;
+  border-radius: 14px;
+  background: #fbfffd;
+}
+
+.pet-gift-card img,
+.pet-gift-card .pet-gift-fallback {
+  width: 54px;
+  height: 54px;
+  border-radius: 11px;
+  object-fit: cover;
+  background: #eafff7;
+}
+
+.pet-gift-card .pet-gift-fallback {
+  display: grid;
+  place-items: center;
+  color: #39aa87;
+  font-weight: 900;
+}
+
+.pet-gift-card strong {
+  display: block;
+  color: #35574d;
+  font-size: 13px;
+}
+
+.pet-gift-card small {
+  color: #80978f;
+}
+
+.pet-gift-card button {
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: #38c799;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.gift-item-dialogue-editor {
+  margin-top: 15px;
+  padding: 14px;
+  border: 1px solid #dcefe8;
+  border-radius: 15px;
+  background: #fbfffd;
+}
+
+.gift-item-dialogue-editor > strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #35574d;
+  font-size: 12px;
+}
+
+.gift-item-dialogue-editor > p,
+.gift-item-dialogue-editor > small {
+  color: #7e958d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.gift-item-dialogue-editor label {
+  display: block;
+  margin-top: 9px;
+}
+
+.gift-item-dialogue-editor label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: #58786e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.gift-item-dialogue-editor select,
+.gift-item-dialogue-editor textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #d7ebe4;
+  border-radius: 10px;
+  background: white;
+  color: #36554c;
+}
+
+.pang-combo-label {
+  position: fixed;
+  left: 50%;
+  top: 28%;
+  z-index: 6000;
+  transform: translate(-50%, -50%) scale(.7);
+  pointer-events: none;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: rgba(31, 81, 66, .92);
+  color: white;
+  font-size: 18px;
+  font-weight: 1000;
+  letter-spacing: 1px;
+  opacity: 0;
+}
+
+.pang-combo-label.show {
+  animation: pangComboLabel .7s ease;
+}
+
+@keyframes pangComboLabel {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.55); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(.96); }
+}
+
+@media (max-width: 520px) {
+  .home-character-actions {
+    gap: 5px;
+  }
+
+  .pet-gift-card {
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+  }
+
+  .pet-gift-card img,
+  .pet-gift-card .pet-gift-fallback {
+    width: 46px;
+    height: 46px;
+  }
+}

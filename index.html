@@ -135,7 +135,10 @@
             <p class="section-label">MY CHARACTER</p>
             <h3>홈 캐릭터</h3>
           </div>
-          <button type="button" class="small-button" id="openHomeCharacterButton">캐릭터 설정</button>
+          <div class="home-character-actions">
+            <button type="button" class="small-button" id="saveHomeCharacterImageButton" disabled>이미지 저장</button>
+            <button type="button" class="small-button" id="openHomeCharacterButton">캐릭터 설정</button>
+          </div>
         </div>
 
         <div class="home-character-area" id="homeCharacterArea">
@@ -965,6 +968,18 @@
               <label><span>대사 · 한 줄에 1개</span><textarea id="petDialogueTextarea" rows="5"></textarea></label>
             </div>
 
+            <div class="gift-item-dialogue-editor">
+              <strong>특정 R 카드 선물 전용 대사</strong>
+              <p>R 캐릭터를 선택하고 한 줄에 대사 1개씩 입력하면, 그 카드를 선물했을 때만 우선 출력돼요.</p>
+              <label><span>R 캐릭터</span><select id="petGiftItemCharacterSelect"><option value="">R 캐릭터 선택</option></select></label>
+              <label><span>전용 대사</span><textarea id="petGiftItemDialogueTextarea" rows="4" placeholder="한 줄에 대사 1개"></textarea></label>
+              <div class="admin-form-actions">
+                <button class="white-button" id="savePetGiftItemDialogueButton" type="button">전용 대사 임시 저장</button>
+                <button class="white-button" id="clearPetGiftItemDialogueButton" type="button">이 카드 대사 비우기</button>
+              </div>
+              <small id="petGiftItemDialogueStatus"></small>
+            </div>
+
             <div class="admin-form-actions">
               <button class="mint-button" type="submit">펫 저장</button>
               <button class="white-button hidden" id="cancelPetTypeEditButton" type="button">수정 취소</button>
@@ -1019,6 +1034,19 @@
     </div>
   </div>
 
+  <!-- 펫 R 카드 선물 선택 모달 -->
+  <div class="modal-backdrop hidden" id="petGiftModal">
+    <div class="home-setting-modal pet-gift-modal">
+      <button class="modal-close" type="button" id="closePetGiftModal">×</button>
+      <p class="section-label">PET GIFT</p>
+      <h2>선물할 R 카드 선택</h2>
+      <p class="modal-help">실제로 보유한 R 캐릭터 카드 1장이 소모돼요.</p>
+      <input class="pet-gift-search" id="petGiftSearchInput" type="search" placeholder="캐릭터 이름 검색">
+      <div class="pet-gift-list" id="petGiftList"></div>
+      <p class="inline-message" id="petGiftMessage"></p>
+    </div>
+  </div>
+
   <!-- 홈 캐릭터 설정 모달 -->
   <div class="modal-backdrop hidden" id="homeCharacterModal">
     <div class="home-setting-modal">
@@ -1033,6 +1061,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=6"></script>
+  <script src="script.js?v=7"></script>
 </body>
 </html>
