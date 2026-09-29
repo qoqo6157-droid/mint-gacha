@@ -7,7 +7,7 @@
 
   <title>민트 가챠</title>
 
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 
 <body>
@@ -88,7 +88,7 @@
               이벤트 배너가 이곳에 표시됩니다.
             </p>
 
-            <button type="button">
+            <button type="button" id="goGachaButton">
               가챠 보러가기
             </button>
 
@@ -167,7 +167,7 @@
               <h3>7일 연속 출석</h3>
             </div>
 
-            <span class="attendance-status">
+            <span class="attendance-status" id="attendanceStatus">
               1일차
             </span>
 
@@ -176,37 +176,37 @@
 
           <div class="attendance-grid">
 
-            <div class="attendance-day today">
+            <div class="attendance-day" data-day="1">
               <span>DAY 1</span>
               <strong>400P</strong>
             </div>
 
-            <div class="attendance-day">
+            <div class="attendance-day" data-day="2">
               <span>DAY 2</span>
               <strong>600P</strong>
             </div>
 
-            <div class="attendance-day">
+            <div class="attendance-day" data-day="3">
               <span>DAY 3</span>
               <strong>800P</strong>
             </div>
 
-            <div class="attendance-day">
+            <div class="attendance-day" data-day="4">
               <span>DAY 4</span>
               <strong>1,000P</strong>
             </div>
 
-            <div class="attendance-day">
+            <div class="attendance-day" data-day="5">
               <span>DAY 5</span>
               <strong>1,300P</strong>
             </div>
 
-            <div class="attendance-day">
+            <div class="attendance-day" data-day="6">
               <span>DAY 6</span>
               <strong>1,600P</strong>
             </div>
 
-            <div class="attendance-day special">
+            <div class="attendance-day special" data-day="7">
               <span>DAY 7</span>
               <strong>2,500P</strong>
             </div>
@@ -214,9 +214,11 @@
           </div>
 
 
-          <button type="button" class="attendance-button">
+          <button type="button" class="attendance-button" id="attendanceButton">
             오늘 출석하기
           </button>
+
+          <p class="attendance-message" id="attendanceMessage"></p>
 
         </section>
 
@@ -387,7 +389,7 @@
   </main>
 
 
-  <script src="script.js?v=1"></script>
+  <script src="script.js?v=2"></script>
 
 </body>
 
