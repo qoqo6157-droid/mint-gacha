@@ -4,21 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header>
     <h1>민트 가챠</h1>
-
-    <nav>
-      <button data-page="home" class="active">홈</button>
-      <button data-page="gacha">가챠</button>
-      <button data-page="collection">도감</button>
-      <button data-page="games">게임</button>
-      <button data-page="pet">펫</button>
-      <button data-page="casino">카지노</button>
-      <button data-page="admin">관리</button>
-    </nav>
 
     <div class="header-right">
       <div class="header-sync-status" id="headerSyncStatus">
@@ -1014,7 +1004,19 @@
 
       </div>
     </section>
+  
   </main>
+
+  <nav class="bottom-nav" id="bottomNav" aria-label="주요 메뉴">
+    <button data-page="home" class="active">홈</button>
+    <button data-page="gacha">가챠</button>
+    <button data-page="collection">도감</button>
+    <button data-page="games">게임</button>
+    <button data-page="pet">펫</button>
+    <button data-page="casino">카지노</button>
+    <button data-page="admin">관리</button>
+  </nav>
+
 
   <!-- 로그인/회원가입 모달 -->
   <div class="modal-backdrop hidden" id="authModal">
@@ -1076,6 +1078,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=10"></script>
+  <script src="script.js?v=11"></script>
 </body>
 </html>

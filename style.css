@@ -1876,3 +1876,212 @@ main {
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* =========================================================
+   V11 - 진짜 하단 메뉴 + 교환소 실루엣 처리
+========================================================= */
+
+/* 헤더는 진짜로 상단 정보만 남김 */
+header {
+  justify-content: space-between;
+  min-height: 64px;
+}
+
+header nav {
+  display: none !important;
+}
+
+/* 하단 고정 메뉴 */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 4900;
+  width: min(820px, calc(100% - 22px));
+  min-height: 70px;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  overflow-x: auto;
+  transform: translateX(-50%);
+  border: 1px solid rgba(185, 229, 215, .95);
+  border-radius: 24px;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 18px 45px rgba(38, 121, 95, .22);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  scrollbar-width: none;
+}
+
+.bottom-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.bottom-nav button {
+  flex: 1 0 82px;
+  min-width: 74px;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: #718b82;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  transition: .18s;
+}
+
+.bottom-nav button::before {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.bottom-nav button[data-page="home"]::before { content: "⌂"; }
+.bottom-nav button[data-page="gacha"]::before { content: "✦"; }
+.bottom-nav button[data-page="collection"]::before { content: "▦"; }
+.bottom-nav button[data-page="games"]::before { content: "♟"; }
+.bottom-nav button[data-page="pet"]::before { content: "♡"; }
+.bottom-nav button[data-page="casino"]::before { content: "♢"; }
+.bottom-nav button[data-page="admin"]::before { content: "⚙"; }
+
+.bottom-nav button:hover {
+  background: #f1fff9;
+  color: #159a72;
+}
+
+.bottom-nav button.active {
+  border-color: #aee7d5;
+  background: linear-gradient(180deg, #e8fff7, #d9fff2);
+  color: #149a70;
+  box-shadow: inset 0 0 0 1px rgba(62,193,153,.06);
+}
+
+/* 하단 메뉴 공간 확보 */
+body {
+  padding-bottom: calc(104px + env(safe-area-inset-bottom));
+}
+
+main {
+  padding-bottom: 150px;
+}
+
+/* 교환소: 이미지 전부 드러나지 않게 실루엣 처리 */
+.exchange-section .exchange-card-image {
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255,255,255,.08), transparent 45%),
+    linear-gradient(135deg, #dff8ef, #f8fffc);
+}
+
+.exchange-section .exchange-card-image img {
+  filter: brightness(0) saturate(0) contrast(1.18);
+  opacity: .86;
+  transform: scale(1.02);
+}
+
+.exchange-section .exchange-card-image::after {
+  content: "?";
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,.88);
+  color: #5d8578;
+  font-size: 12px;
+  font-weight: 1000;
+  box-shadow: 0 3px 10px rgba(53, 111, 91, .14);
+}
+
+/* 리스트형 교환소 더 보기 쉽게 정리 */
+.exchange-grid {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.exchange-card {
+  border: 1px solid #dcefe8;
+  box-shadow: 0 5px 16px rgba(43, 128, 102, .05);
+}
+
+.exchange-card-image {
+  width: 68px;
+}
+
+.exchange-card-body {
+  padding: 8px 9px;
+}
+
+.exchange-card-body strong {
+  font-size: 11px;
+}
+
+.exchange-card-body small {
+  font-size: 8px;
+}
+
+.exchange-card button {
+  min-width: 62px;
+  padding: 7px 8px;
+}
+
+@media (max-width: 800px) {
+  .bottom-nav {
+    left: 6px;
+    right: 6px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: auto;
+    min-height: 62px;
+    transform: none;
+    border-radius: 18px;
+  }
+
+  .bottom-nav button {
+    flex-basis: 58px;
+    min-width: 58px;
+    min-height: 46px;
+    padding: 5px 6px;
+    font-size: 9px;
+  }
+
+  .bottom-nav button::before {
+    font-size: 15px;
+  }
+
+  body {
+    padding-bottom: calc(95px + env(safe-area-inset-bottom));
+  }
+
+  main {
+    padding-bottom: 135px;
+  }
+}
+
+@media (max-width: 430px) {
+  .bottom-nav {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .bottom-nav button {
+    min-width: 52px;
+    font-size: 8px;
+  }
+
+  .exchange-grid {
+    grid-template-columns: 1fr;
+  }
+}
