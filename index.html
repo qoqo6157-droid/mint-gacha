@@ -7,7 +7,7 @@
 
   <title>민트 가챠</title>
 
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 
 <body>
@@ -26,9 +26,16 @@
       <button data-page="admin">관리</button>
     </nav>
 
-    <p id="pointDisplay">
-      보유 포인트: 3,000P
-    </p>
+    <div class="header-right">
+      <div class="header-sync-status" id="headerSyncStatus">
+        <span class="header-sync-dot"></span>
+        <span id="headerSyncText">게스트 · 로컬 저장</span>
+      </div>
+
+      <p id="pointDisplay">
+        보유 포인트: 3,000P
+      </p>
+    </div>
 
   </header>
 
@@ -45,9 +52,9 @@
           <h2>홈</h2>
         </div>
 
-        <div class="login-status-box">
-          <span class="status-dot"></span>
-          <span>게스트 이용 중</span>
+        <div class="login-status-box" id="loginStatusBox">
+          <span class="status-dot" id="loginStatusDot"></span>
+          <span id="loginStatusText">게스트 이용 중</span>
         </div>
 
       </div>
@@ -117,6 +124,10 @@
               <h3>계정 연동</h3>
             </div>
 
+            <span class="cloud-badge" id="cloudBadge">
+              로컬 저장
+            </span>
+
           </div>
 
 
@@ -128,28 +139,55 @@
 
             <div class="account-text">
 
-              <strong>
+              <strong id="accountTitle">
                 현재 게스트로 이용 중이에요.
               </strong>
 
-              <p>
+              <p id="accountDescription">
                 로그인하면 다른 기기에서도
                 내 데이터를 불러올 수 있어요.
               </p>
+
+              <p class="account-email" id="accountEmail"></p>
 
             </div>
 
           </div>
 
 
-          <div class="account-buttons">
+          <div class="cloud-status-card" id="cloudStatusCard">
+            <span class="cloud-status-dot" id="cloudStatusDot"></span>
 
-            <button type="button" class="mint-button">
+            <div>
+              <strong id="cloudStatusTitle">브라우저에 저장 중</strong>
+              <p id="cloudStatusDescription">
+                현재 데이터는 이 브라우저의 localStorage에 저장돼요.
+              </p>
+            </div>
+          </div>
+
+
+          <div class="account-buttons" id="guestAccountButtons">
+
+            <button type="button" class="mint-button" id="openLoginButton">
               로그인
             </button>
 
-            <button type="button" class="white-button">
+            <button type="button" class="white-button" id="openSignupButton">
               회원가입
+            </button>
+
+          </div>
+
+
+          <div class="account-buttons logged-in-buttons hidden" id="loggedInAccountButtons">
+
+            <button type="button" class="mint-button" id="manualCloudSaveButton">
+              지금 저장
+            </button>
+
+            <button type="button" class="white-button" id="logoutButton">
+              로그아웃
             </button>
 
           </div>
@@ -389,7 +427,83 @@
   </main>
 
 
-  <script src="script.js?v=2"></script>
+  <!-- 로그인 / 회원가입 팝업 -->
+  <div class="modal-backdrop hidden" id="authModal">
+
+    <div class="auth-modal">
+
+      <button class="modal-close" type="button" id="closeAuthModal" aria-label="닫기">
+        ×
+      </button>
+
+      <p class="section-label">MINT ACCOUNT</p>
+      <h2 id="authModalTitle">로그인</h2>
+
+      <p class="auth-modal-description" id="authModalDescription">
+        이메일과 비밀번호로 로그인하세요.
+      </p>
+
+
+      <form id="authForm">
+
+        <label class="auth-field">
+          <span>이메일</span>
+          <input
+            id="authEmailInput"
+            type="email"
+            autocomplete="email"
+            placeholder="example@email.com"
+            required
+          >
+        </label>
+
+
+        <label class="auth-field">
+          <span>비밀번호</span>
+          <input
+            id="authPasswordInput"
+            type="password"
+            autocomplete="current-password"
+            placeholder="비밀번호"
+            minlength="6"
+            required
+          >
+        </label>
+
+
+        <label class="auth-field hidden" id="authPasswordConfirmField">
+          <span>비밀번호 확인</span>
+          <input
+            id="authPasswordConfirmInput"
+            type="password"
+            autocomplete="new-password"
+            placeholder="비밀번호 다시 입력"
+            minlength="6"
+          >
+        </label>
+
+
+        <button class="auth-submit-button" id="authSubmitButton" type="submit">
+          로그인
+        </button>
+
+      </form>
+
+
+      <p class="auth-message" id="authMessage"></p>
+
+
+      <button class="auth-switch-button" id="authSwitchButton" type="button">
+        계정이 없나요? 회원가입
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js?v=3"></script>
 
 </body>
 
