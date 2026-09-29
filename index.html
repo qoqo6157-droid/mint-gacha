@@ -7,7 +7,7 @@
 
   <title>민트 가챠</title>
 
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 
 <body>
@@ -37,24 +37,248 @@
 
     <!-- 홈 -->
     <section id="home" class="page active">
-      <h2>홈</h2>
 
-      <div class="card">
-        이벤트 배너
+      <div class="home-title-area">
+
+        <div>
+          <p class="home-small-title">MINT GACHA</p>
+          <h2>홈</h2>
+        </div>
+
+        <div class="login-status-box">
+          <span class="status-dot"></span>
+          <span>게스트 이용 중</span>
+        </div>
+
       </div>
 
-      <div class="card">
-        홈 캐릭터
+
+      <!-- 이벤트 배너 -->
+      <section class="home-section">
+
+        <div class="section-title-row">
+
+          <div>
+            <p class="section-label">EVENT</p>
+            <h3>진행 중인 이벤트</h3>
+          </div>
+
+          <div class="banner-dots">
+            <span class="banner-dot active"></span>
+            <span class="banner-dot"></span>
+            <span class="banner-dot"></span>
+          </div>
+
+        </div>
+
+
+        <div class="event-banner">
+
+          <div class="event-banner-text">
+
+            <span class="event-badge">
+              PICK UP
+            </span>
+
+            <h4>
+              새로운 한정 픽업!
+            </h4>
+
+            <p>
+              이벤트 배너가 이곳에 표시됩니다.
+            </p>
+
+            <button type="button">
+              가챠 보러가기
+            </button>
+
+          </div>
+
+
+          <div class="event-banner-image">
+            <span>CHARACTER</span>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- 계정 + 출석 -->
+      <div class="home-two-column">
+
+        <!-- 계정 -->
+        <section class="home-section account-panel">
+
+          <div class="section-title-row">
+
+            <div>
+              <p class="section-label">ACCOUNT</p>
+              <h3>계정 연동</h3>
+            </div>
+
+          </div>
+
+
+          <div class="account-content">
+
+            <div class="account-icon">
+              ♡
+            </div>
+
+            <div class="account-text">
+
+              <strong>
+                현재 게스트로 이용 중이에요.
+              </strong>
+
+              <p>
+                로그인하면 다른 기기에서도
+                내 데이터를 불러올 수 있어요.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="account-buttons">
+
+            <button type="button" class="mint-button">
+              로그인
+            </button>
+
+            <button type="button" class="white-button">
+              회원가입
+            </button>
+
+          </div>
+
+        </section>
+
+
+        <!-- 출석 -->
+        <section class="home-section attendance-panel">
+
+          <div class="section-title-row">
+
+            <div>
+              <p class="section-label">ATTENDANCE</p>
+              <h3>7일 연속 출석</h3>
+            </div>
+
+            <span class="attendance-status">
+              1일차
+            </span>
+
+          </div>
+
+
+          <div class="attendance-grid">
+
+            <div class="attendance-day today">
+              <span>DAY 1</span>
+              <strong>400P</strong>
+            </div>
+
+            <div class="attendance-day">
+              <span>DAY 2</span>
+              <strong>600P</strong>
+            </div>
+
+            <div class="attendance-day">
+              <span>DAY 3</span>
+              <strong>800P</strong>
+            </div>
+
+            <div class="attendance-day">
+              <span>DAY 4</span>
+              <strong>1,000P</strong>
+            </div>
+
+            <div class="attendance-day">
+              <span>DAY 5</span>
+              <strong>1,300P</strong>
+            </div>
+
+            <div class="attendance-day">
+              <span>DAY 6</span>
+              <strong>1,600P</strong>
+            </div>
+
+            <div class="attendance-day special">
+              <span>DAY 7</span>
+              <strong>2,500P</strong>
+            </div>
+
+          </div>
+
+
+          <button type="button" class="attendance-button">
+            오늘 출석하기
+          </button>
+
+        </section>
+
       </div>
 
-      <div class="card">
-        출석 체크
-      </div>
+
+      <!-- 홈 캐릭터 -->
+      <section class="home-section home-character-section">
+
+        <div class="section-title-row">
+
+          <div>
+            <p class="section-label">MY CHARACTER</p>
+            <h3>홈 캐릭터</h3>
+          </div>
+
+          <button type="button" class="small-button">
+            캐릭터 설정
+          </button>
+
+        </div>
+
+
+        <div class="home-character-area">
+
+          <div class="home-character-image">
+            <span>캐릭터 이미지</span>
+          </div>
+
+
+          <div class="home-character-info">
+
+            <span class="character-rarity">
+              SSR
+            </span>
+
+            <h4>
+              아직 홈 캐릭터가 없어요
+            </h4>
+
+            <p>
+              도감에서 획득한 캐릭터를
+              최대 3명까지 홈 캐릭터로 설정할 수 있어요.
+            </p>
+
+            <div class="character-dialogue">
+              “캐릭터를 터치하면 대사가 표시됩니다.”
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
     </section>
+
 
 
     <!-- 가챠 -->
     <section id="gacha" class="page">
+
       <h2>가챠</h2>
 
       <div class="card">
@@ -64,21 +288,27 @@
       <div class="card">
         한정 가챠
       </div>
+
     </section>
+
 
 
     <!-- 도감 -->
     <section id="collection" class="page">
+
       <h2>도감</h2>
 
       <div class="card">
         캐릭터 도감
       </div>
+
     </section>
+
 
 
     <!-- 게임 -->
     <section id="games" class="page">
+
       <h2>게임</h2>
 
       <div class="card">
@@ -100,21 +330,27 @@
       <div class="card">
         리듬 탭
       </div>
+
     </section>
+
 
 
     <!-- 펫 -->
     <section id="pet" class="page">
+
       <h2>펫</h2>
 
       <div class="card">
         펫 키우기
       </div>
+
     </section>
+
 
 
     <!-- 카지노 -->
     <section id="casino" class="page">
+
       <h2>카지노</h2>
 
       <div class="card">
@@ -132,16 +368,20 @@
       <div class="card">
         NULL DERBY
       </div>
+
     </section>
+
 
 
     <!-- 관리 -->
     <section id="admin" class="page">
+
       <h2>관리</h2>
 
       <div class="card">
         관리자 메뉴
       </div>
+
     </section>
 
   </main>
