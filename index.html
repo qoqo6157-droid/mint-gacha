@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <header>
@@ -346,8 +346,9 @@
           <button data-pang-tool="shuffle">🔀 셔플 <small>1회</small></button>
         </div>
 
-        <div class="pang-board-wrap">
+        <div class="pang-board-wrap" id="pangBoardWrap">
           <div class="pang-board" id="pangBoard"></div>
+          <div class="pang-fx-layer" id="pangFxLayer" aria-hidden="true"></div>
           <div class="pang-flash" id="pangFlash"></div>
         </div>
 
@@ -490,8 +491,15 @@
           <div><span>등급</span><strong id="rhythmGrade">S</strong></div>
         </div>
 
-        <div class="rhythm-stage-wrap">
+        <div class="rhythm-stage-wrap" id="rhythmStageWrap">
           <canvas id="rhythmCanvas" width="520" height="650"></canvas>
+          <div class="rhythm-tap-fx" id="rhythmTapFx" aria-hidden="true">
+            <div class="rhythm-lane-fx" data-rhythm-fx-lane="0"></div>
+            <div class="rhythm-lane-fx" data-rhythm-fx-lane="1"></div>
+            <div class="rhythm-lane-fx" data-rhythm-fx-lane="2"></div>
+            <div class="rhythm-lane-fx" data-rhythm-fx-lane="3"></div>
+          </div>
+          <div class="rhythm-judge-pop" id="rhythmJudgePop" aria-hidden="true"></div>
           <div class="rhythm-countdown hidden" id="rhythmCountdown">3</div>
         </div>
 
@@ -1078,6 +1086,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=12"></script>
 </body>
 </html>

@@ -2085,3 +2085,442 @@ main {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* =========================================================
+   V12 - 리듬 탭 이펙트 + 캐릭터 팡 애니메이션 강화
+========================================================= */
+
+/* ---------- 캐릭터 팡 ---------- */
+.pang-board-wrap {
+  overflow: visible;
+}
+
+.pang-fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pang-cell {
+  transform-origin: 50% 50%;
+  will-change: transform, opacity, filter;
+}
+
+.pang-cell.pang-select-pop {
+  animation: pangSelectPop .28s cubic-bezier(.2,.9,.3,1.3);
+}
+
+.pang-cell.pang-swap-bounce {
+  z-index: 3;
+  animation: pangSwapBounce .28s cubic-bezier(.2,.8,.25,1.25);
+}
+
+.pang-cell.pang-swap-invalid {
+  animation: pangSwapInvalid .34s ease;
+}
+
+.pang-cell.pang-dropping {
+  animation: pangDropIn .42s cubic-bezier(.16,.82,.27,1.15) var(--drop-delay, 0ms) both;
+}
+
+.pang-board.pang-start-pulse {
+  animation: pangBoardStart .6s ease;
+}
+
+.pang-board.pang-chain-pulse {
+  animation: pangChainPulse .46s ease;
+}
+
+.pang-board.pang-chain-hyper {
+  animation: pangChainHyper .5s ease;
+}
+
+.pang-board.pang-special-blast {
+  animation: pangSpecialBlast .58s ease;
+}
+
+.pang-board.pang-tool-pulse {
+  animation: pangToolPulse .4s ease;
+}
+
+.pang-board.pang-invalid-pulse {
+  animation: pangInvalidPulse .32s ease;
+}
+
+.pang-board.pang-shuffle .pang-cell {
+  animation: pangShuffle .48s cubic-bezier(.2,.8,.3,1.2);
+}
+
+.pang-burst-ring {
+  position: absolute;
+  z-index: 20;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #67dab8;
+  border-radius: 50%;
+  transform: translate(-50%,-50%) scale(.35);
+  opacity: 0;
+  animation: pangBurstRing .55s ease-out both;
+}
+
+.pang-burst-ring.special {
+  border-color: #9b83ff;
+  box-shadow: 0 0 15px rgba(143,119,255,.55);
+}
+
+.pang-burst-ring.mega {
+  border-color: #ff9060;
+  box-shadow: 0 0 24px rgba(255,105,55,.7);
+}
+
+.pang-burst-ring.chain {
+  border-color: #ffd760;
+  box-shadow: 0 0 18px rgba(255,204,55,.65);
+}
+
+.pang-spark {
+  position: absolute;
+  z-index: 22;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #65dbb8;
+  box-shadow: 0 0 9px rgba(80,215,176,.85);
+  transform: translate(-50%,-50%);
+  animation: pangSparkFly .58s cubic-bezier(.17,.75,.25,1) var(--delay,0ms) both;
+}
+
+.pang-spark.special {
+  background: #a98aff;
+  box-shadow: 0 0 10px rgba(146,119,255,.9);
+}
+
+.pang-spark.mega {
+  width: 9px;
+  height: 9px;
+  background: #ff8755;
+  box-shadow: 0 0 14px rgba(255,92,42,.95);
+}
+
+.pang-spark.chain {
+  background: #ffd85d;
+  box-shadow: 0 0 11px rgba(255,206,65,.95);
+}
+
+.pang-cell.special-created {
+  z-index: 5;
+  animation: pangSpecialCreatedV12 .58s cubic-bezier(.18,.9,.25,1.25) both !important;
+}
+
+.pang-cell.special-created .pang-special {
+  animation: pangSpecialIconSpin .56s ease both;
+}
+
+@keyframes pangSelectPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(.9); filter: brightness(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes pangSwapBounce {
+  0% { transform: scale(.92) rotate(-2deg); }
+  55% { transform: scale(1.09) rotate(2deg); filter: brightness(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes pangSwapInvalid {
+  0%,100% { transform: translateX(0); }
+  22% { transform: translateX(-7px) rotate(-2deg); }
+  48% { transform: translateX(7px) rotate(2deg); }
+  72% { transform: translateX(-4px); }
+}
+@keyframes pangDropIn {
+  0% { opacity: 0; transform: translateY(-38px) scale(.88); filter: blur(2px); }
+  70% { opacity: 1; transform: translateY(4px) scale(1.03); filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pangBoardStart {
+  0% { transform: scale(.96); filter: brightness(1); }
+  45% { transform: scale(1.015); filter: brightness(1.18); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes pangChainPulse {
+  0%,100% { transform: scale(1); filter: saturate(1); }
+  45% { transform: scale(1.012); filter: saturate(1.3) brightness(1.1); }
+}
+@keyframes pangChainHyper {
+  0%,100% { transform: scale(1); filter: hue-rotate(0deg); }
+  35% { transform: scale(1.018); filter: hue-rotate(30deg) saturate(1.6) brightness(1.16); }
+  70% { transform: scale(.995); filter: hue-rotate(-20deg) saturate(1.4); }
+}
+@keyframes pangSpecialBlast {
+  0%,100% { transform: scale(1); }
+  25% { transform: scale(1.018) rotate(.4deg); filter: brightness(1.25) saturate(1.35); }
+  55% { transform: scale(.99) rotate(-.4deg); }
+}
+@keyframes pangToolPulse {
+  0%,100% { filter: brightness(1); }
+  45% { filter: brightness(1.22) saturate(1.25); }
+}
+@keyframes pangInvalidPulse {
+  0%,100% { filter: none; }
+  45% { filter: saturate(.65) brightness(.95); }
+}
+@keyframes pangShuffle {
+  0% { transform: rotate(0) scale(1); opacity: 1; }
+  40% { transform: rotate(var(--shuffle-rot, 8deg)) scale(.85); opacity: .55; }
+  100% { transform: rotate(0) scale(1); opacity: 1; }
+}
+@keyframes pangBurstRing {
+  0% { opacity: .95; transform: translate(-50%,-50%) scale(.25); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(3.2); }
+}
+@keyframes pangSparkFly {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.3) rotate(0); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.15) rotate(var(--rot)); }
+}
+@keyframes pangSpecialCreatedV12 {
+  0% { transform: scale(.35) rotate(-12deg); filter: brightness(2); }
+  55% { transform: scale(1.22) rotate(5deg); filter: brightness(1.35) saturate(1.5); }
+  100% { transform: scale(1) rotate(0); filter: none; }
+}
+@keyframes pangSpecialIconSpin {
+  0% { transform: scale(.2) rotate(-180deg); opacity: 0; }
+  65% { transform: scale(1.25) rotate(20deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* ---------- 리듬 탭 ---------- */
+.rhythm-stage-wrap {
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+.rhythm-tap-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.rhythm-lane-fx {
+  position: relative;
+  opacity: 0;
+}
+
+.rhythm-lane-fx.active {
+  animation: rhythmLanePulse .34s ease-out both;
+}
+
+.rhythm-lane-fx.active::before {
+  content: "";
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  bottom: 8.5%;
+  height: 24%;
+  border-radius: 50% 50% 12px 12px;
+  background: linear-gradient(to top, rgba(95,224,184,.48), rgba(95,224,184,.06) 70%, transparent);
+  filter: blur(2px);
+}
+
+.rhythm-lane-fx.perfect::before {
+  background: linear-gradient(to top, rgba(255,235,127,.72), rgba(255,170,223,.18) 60%, transparent);
+}
+.rhythm-lane-fx.great::before {
+  background: linear-gradient(to top, rgba(119,210,255,.65), rgba(133,153,255,.15) 65%, transparent);
+}
+.rhythm-lane-fx.good::before {
+  background: linear-gradient(to top, rgba(105,230,190,.58), rgba(105,230,190,.1) 65%, transparent);
+}
+.rhythm-lane-fx.miss::before {
+  background: linear-gradient(to top, rgba(255,95,116,.42), rgba(255,95,116,.05) 70%, transparent);
+}
+
+.rhythm-hit-burst {
+  position: absolute;
+  z-index: 6;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%,-50%);
+  border: 3px solid #69dfbb;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: rhythmHitRing .52s ease-out both;
+}
+
+.rhythm-hit-burst.perfect {
+  border-color: #ffe77a;
+  box-shadow: 0 0 20px rgba(255,230,105,.8), 0 0 36px rgba(255,123,203,.28);
+}
+.rhythm-hit-burst.great {
+  border-color: #80d6ff;
+  box-shadow: 0 0 18px rgba(102,195,255,.75);
+}
+.rhythm-hit-burst.good {
+  border-color: #6fe1bd;
+  box-shadow: 0 0 15px rgba(91,219,178,.7);
+}
+.rhythm-hit-burst.miss {
+  border-color: #ff7586;
+  box-shadow: 0 0 14px rgba(255,92,112,.6);
+}
+
+.rhythm-hit-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #75e2c0;
+  box-shadow: 0 0 8px currentColor;
+  animation: rhythmSparkFly .48s ease-out both;
+}
+
+.rhythm-hit-spark.perfect { background: #ffe66f; color: #ffe66f; }
+.rhythm-hit-spark.great { background: #7ad5ff; color: #7ad5ff; }
+.rhythm-hit-spark.good { background: #6de1bd; color: #6de1bd; }
+.rhythm-hit-spark.miss { background: #ff7586; color: #ff7586; opacity: .72; }
+
+.rhythm-judge-pop {
+  position: absolute;
+  left: var(--judge-x,50%);
+  top: 19%;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 110px;
+  transform: translate(-50%,-50%) scale(.7);
+  opacity: 0;
+  pointer-events: none;
+  text-align: center;
+}
+
+.rhythm-judge-pop strong {
+  font-size: 25px;
+  font-weight: 1000;
+  letter-spacing: .7px;
+  text-shadow: 0 3px 15px rgba(0,0,0,.48);
+}
+
+.rhythm-judge-pop span {
+  margin-top: 1px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 1000;
+  text-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+
+.rhythm-judge-pop.show {
+  animation: rhythmJudgePop .48s cubic-bezier(.18,.86,.25,1.2) both;
+}
+
+.rhythm-judge-pop.perfect strong {
+  color: #ffe879;
+  text-shadow: 0 0 15px rgba(255,227,103,.65), 0 3px 15px rgba(0,0,0,.48);
+}
+.rhythm-judge-pop.great strong { color: #8bdbff; }
+.rhythm-judge-pop.good strong { color: #79e4c4; }
+.rhythm-judge-pop.miss strong { color: #ff7a8a; }
+
+.rhythm-stage-wrap.rhythm-stage-hit #rhythmCanvas {
+  animation: rhythmCanvasHit .22s ease;
+}
+
+.rhythm-stage-wrap.rhythm-stage-miss #rhythmCanvas {
+  animation: rhythmCanvasMiss .24s ease;
+}
+
+.rhythm-mobile-keys button {
+  position: relative;
+  overflow: hidden;
+  transition: transform .1s, background .12s, box-shadow .12s, color .12s;
+}
+
+.rhythm-mobile-keys button.hit {
+  transform: translateY(2px) scale(.95);
+}
+
+.rhythm-mobile-keys button.hit.perfect {
+  background: linear-gradient(135deg,#ffd969,#ff8fc9);
+  box-shadow: 0 0 0 3px rgba(255,220,98,.16), 0 0 18px rgba(255,142,199,.28);
+}
+.rhythm-mobile-keys button.hit.great {
+  background: linear-gradient(135deg,#72d8ff,#7f9cff);
+  box-shadow: 0 0 16px rgba(102,182,255,.3);
+}
+.rhythm-mobile-keys button.hit.good {
+  background: #5fd9b3;
+  box-shadow: 0 0 14px rgba(79,203,163,.25);
+}
+.rhythm-mobile-keys button.hit.miss {
+  background: #ff7888;
+  box-shadow: 0 0 14px rgba(255,91,111,.22);
+}
+.rhythm-mobile-keys button.hit {
+  color: white;
+}
+
+#rhythmCombo.rhythm-combo-pop {
+  display: inline-block;
+  animation: rhythmComboPop .24s cubic-bezier(.2,.8,.3,1.25);
+}
+
+@keyframes rhythmLanePulse {
+  0% { opacity: 0; transform: scaleY(.75); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: scaleY(1.08); }
+}
+@keyframes rhythmHitRing {
+  0% { opacity: .95; transform: translate(-50%,-50%) scale(.35); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(3.4); }
+}
+@keyframes rhythmSparkFly {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.3); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(.15) rotate(var(--sr)); }
+}
+@keyframes rhythmJudgePop {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.58) translateY(10px); filter: blur(2px); }
+  40% { opacity: 1; transform: translate(-50%,-50%) scale(1.12) translateY(-3px); filter: blur(0); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(.96) translateY(-18px); }
+}
+@keyframes rhythmCanvasHit {
+  0%,100% { filter: brightness(1); }
+  45% { filter: brightness(1.14) saturate(1.12); }
+}
+@keyframes rhythmCanvasMiss {
+  0%,100% { transform: translateX(0); filter: none; }
+  25% { transform: translateX(-2px); filter: saturate(.9); }
+  55% { transform: translateX(2px); filter: brightness(.95); }
+}
+@keyframes rhythmComboPop {
+  0% { transform: scale(.78); }
+  55% { transform: scale(1.22); color: #35c89b; }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pang-cell,
+  .pang-board,
+  .pang-burst-ring,
+  .pang-spark,
+  .rhythm-lane-fx,
+  .rhythm-hit-burst,
+  .rhythm-hit-spark,
+  .rhythm-judge-pop,
+  .rhythm-stage-wrap #rhythmCanvas,
+  .rhythm-mobile-keys button,
+  #rhythmCombo {
+    animation-duration: .01ms !important;
+  }
+}

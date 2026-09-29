@@ -2150,6 +2150,90 @@ function createPangBoard() {
   return board;
 }
 
+function pangCellElement(r,c){
+  return document.querySelector(`.pang-cell[data-pang-r="${r}"][data-pang-c="${c}"]`);
+}
+
+function pangBoardPulse(className="pang-board-pulse", duration=360){
+  const board=document.getElementById("pangBoard");
+  if(!board)return;
+  board.classList.remove(className);
+  void board.offsetWidth;
+  board.classList.add(className);
+  setTimeout(()=>board.classList.remove(className),duration);
+}
+
+function spawnPangBurst(r,c,type="normal",count=7){
+  const layer=document.getElementById("pangFxLayer");
+  const cell=pangCellElement(r,c);
+  const wrap=document.getElementById("pangBoardWrap");
+  if(!layer||!cell||!wrap)return;
+
+  const cellRect=cell.getBoundingClientRect();
+  const wrapRect=wrap.getBoundingClientRect();
+  const x=cellRect.left-wrapRect.left+cellRect.width/2;
+  const y=cellRect.top-wrapRect.top+cellRect.height/2;
+
+  const ring=document.createElement("span");
+  ring.className=`pang-burst-ring ${type}`;
+  ring.style.left=`${x}px`;
+  ring.style.top=`${y}px`;
+  layer.appendChild(ring);
+  setTimeout(()=>ring.remove(),620);
+
+  for(let i=0;i<count;i++){
+    const p=document.createElement("span");
+    p.className=`pang-spark ${type}`;
+    p.style.left=`${x}px`;
+    p.style.top=`${y}px`;
+    const angle=(Math.PI*2*i/count)+(Math.random()*.45);
+    const distance=24+Math.random()*42;
+    p.style.setProperty("--dx",`${Math.cos(angle)*distance}px`);
+    p.style.setProperty("--dy",`${Math.sin(angle)*distance}px`);
+    p.style.setProperty("--rot",`${Math.round(Math.random()*220-110)}deg`);
+    p.style.setProperty("--delay",`${Math.round(Math.random()*65)}ms`);
+    layer.appendChild(p);
+    setTimeout(()=>p.remove(),720);
+  }
+}
+
+function animatePangSwap(r1,c1,r2,c2,invalid=false){
+  const a=pangCellElement(r1,c1),b=pangCellElement(r2,c2);
+  [a,b].forEach((el)=>{
+    if(!el)return;
+    el.classList.remove("pang-swap-bounce","pang-swap-invalid");
+    void el.offsetWidth;
+    el.classList.add(invalid?"pang-swap-invalid":"pang-swap-bounce");
+    setTimeout(()=>el.classList.remove("pang-swap-bounce","pang-swap-invalid"),360);
+  });
+}
+
+function animatePangDrop(){
+  const cells=[...document.querySelectorAll(".pang-cell")];
+  cells.forEach((el,i)=>{
+    el.style.setProperty("--drop-delay",`${(i%PANG_SIZE)*18 + Math.floor(i/PANG_SIZE)*10}ms`);
+    el.classList.add("pang-dropping");
+    setTimeout(()=>el.classList.remove("pang-dropping"),520);
+  });
+}
+
+function animatePangSpecialCreated(placements=[]){
+  placements.forEach((p)=>{
+    const el=pangCellElement(p.r,p.c);
+    if(el){
+      el.classList.add("special-created");
+      setTimeout(()=>el.classList.remove("special-created"),620);
+    }
+    spawnPangBurst(p.r,p.c,p.special==="mega"?"mega":"special",p.special==="mega"?16:10);
+  });
+}
+
+function pangToolFx(tool,r,c){
+  pangBoardPulse("pang-tool-pulse",430);
+  const type=tool==="hammer"?"mega":tool==="row"||tool==="col"?"special":"normal";
+  spawnPangBurst(r,c,type,tool==="hammer"?14:9);
+}
+
 function renderPangStatus() {
   const select = document.getElementById("pangCharacterSelect");
   const equipped = select?.value || saveData.gameRecords.characterPang?.equippedSSR || "";
@@ -2225,6 +2309,9 @@ async function handlePangCell(r, c) {
   if (!pangState.selected) {
     pangState.selected = pos;
     renderPangBoard();
+    const selectedEl=pangCellElement(r,c);
+    selectedEl?.classList.add("pang-select-pop");
+    setTimeout(()=>selectedEl?.classList.remove("pang-select-pop"),300);
     return;
   }
   if (pangState.selected.r === r && pangState.selected.c === c) {
@@ -2235,6 +2322,9 @@ async function handlePangCell(r, c) {
   if (!pangAdjacent(pangState.selected, pos)) {
     pangState.selected = pos;
     renderPangBoard();
+    const selectedEl=pangCellElement(r,c);
+    selectedEl?.classList.add("pang-select-pop");
+    setTimeout(()=>selectedEl?.classList.remove("pang-select-pop"),300);
     return;
   }
 
@@ -2375,11 +2465,23 @@ async function resolvePangMatches() {
     renderPangStatus();
 
     const cellEls = document.querySelectorAll(".pang-cell");
+    let burstIndex=0;
     expanded.forEach((key) => {
       const [r, c] = key.split(",").map(Number);
       const idx = r * PANG_SIZE + c;
       cellEls[idx]?.classList.add("popping");
+      if(burstIndex<14 || burstIndex%3===0){
+        const cell=pangState.board[r]?.[c];
+        const fxType=cell?.special==="mega"?"mega":cell?.special?"special":cascade>=3?"chain":"normal";
+        spawnPangBurst(r,c,fxType,cell?.special?10:5);
+      }
+      burstIndex++;
     });
+
+    if(cascade>=2){
+      showPangComboLabel(`${cascade} CHAIN!`);
+      pangBoardPulse(cascade>=4?"pang-chain-hyper":"pang-chain-pulse",500);
+    }
 
     if (removedCount >= 12 || specialPlacements.some((x) => x.special === "mega")) {
       document.body.classList.add("game-shake");
@@ -2411,7 +2513,9 @@ async function resolvePangMatches() {
     }
 
     renderPangBoard();
-    await new Promise((resolve) => setTimeout(resolve, 130));
+    animatePangDrop();
+    animatePangSpecialCreated(specialPlacements);
+    await new Promise((resolve) => setTimeout(resolve, 240));
   }
   if (pangState.active && !pangHasPossibleMove()) {
     pangState.board = pangState.board.flat().sort(() => Math.random() - .5).reduce((rows, cell, i) => {
@@ -2555,6 +2659,14 @@ async function resolvePangSpecialSwap(a,b,r1,c1,r2,c2){
   const expanded=pangExpandedRemoval(removal);
   pangState.score+=expanded.size*80;
   showPangComboLabel(label);
+  pangBoardPulse("pang-special-blast",620);
+  let fxIndex=0;
+  expanded.forEach((key)=>{
+    const [rr,cc]=key.split(",").map(Number);
+    if(fxIndex<18 || fxIndex%3===0)spawnPangBurst(rr,cc,sa==="mega"||sb==="mega"?"mega":"special",8);
+    fxIndex++;
+  });
+  await new Promise((resolve)=>setTimeout(resolve,170));
   if(expanded.size>=10){
     document.body.classList.add("game-shake");
     document.getElementById("pangFlash")?.classList.add("on");
@@ -2577,7 +2689,8 @@ async function resolvePangSpecialSwap(a,b,r1,c1,r2,c2){
   }
 
   renderPangBoard();
-  await new Promise((resolve)=>setTimeout(resolve,180));
+  animatePangDrop();
+  await new Promise((resolve)=>setTimeout(resolve,260));
   await resolvePangMatches();
   return true;
 }
@@ -2591,6 +2704,8 @@ async function pangSwapAndResolve(r1, c1, r2, c2) {
 
   swapPangCells(r1,c1,r2,c2);
   renderPangBoard();
+  animatePangSwap(r1,c1,r2,c2,false);
+  await new Promise((resolve)=>setTimeout(resolve,120));
 
   let valid = await resolvePangSpecialSwap(a,b,r1,c1,r2,c2);
   if (!valid) {
@@ -2600,6 +2715,8 @@ async function pangSwapAndResolve(r1, c1, r2, c2) {
   if (!valid) {
     swapPangCells(r1,c1,r2,c2);
     renderPangBoard();
+    animatePangSwap(r1,c1,r2,c2,true);
+    pangBoardPulse("pang-invalid-pulse",330);
     setMessage("pangMessage", "매치가 만들어지는 이동만 가능해요.", "error");
   } else {
     pangState.moves -= 1;
@@ -2642,6 +2759,8 @@ function startPangGame() {
   document.querySelectorAll("[data-pang-tool]").forEach((button) => { button.disabled = false; button.classList.remove("active"); });
   setMessage("pangMessage", "3개 이상 연결해보세요.");
   renderPangBoard();
+  animatePangDrop();
+  pangBoardPulse("pang-start-pulse",620);
   renderPangStatus();
 }
 
@@ -2689,6 +2808,9 @@ document.querySelectorAll("[data-pang-tool]").forEach((button) => {
         return rows;
       }, []);
       renderPangBoard();
+      document.getElementById("pangBoard")?.classList.add("pang-shuffle");
+      setTimeout(()=>document.getElementById("pangBoard")?.classList.remove("pang-shuffle"),520);
+      animatePangDrop();
       button.disabled = true;
       setMessage("pangMessage", "보드를 셔플했어요.");
       return;
@@ -2711,6 +2833,13 @@ async function usePangToolAt(tool, r, c) {
 
   const expanded = pangExpandedRemoval(remove);
   pangState.score += expanded.size * 40;
+  pangToolFx(tool,r,c);
+  expanded.forEach((key) => {
+    const [rr,cc]=key.split(",").map(Number);
+    pangCellElement(rr,cc)?.classList.add("popping");
+    spawnPangBurst(rr,cc,tool==="hammer"?"mega":"special",6);
+  });
+  await new Promise((resolve)=>setTimeout(resolve,190));
   expanded.forEach((key) => {
     const [rr,cc]=key.split(",").map(Number);
     pangState.board[rr][cc] = null;
@@ -2721,6 +2850,8 @@ async function usePangToolAt(tool, r, c) {
   pangState.tool = null;
   document.querySelectorAll("[data-pang-tool]").forEach((item) => { item.classList.remove("active"); if (item.dataset.pangTool === tool) item.disabled = true; });
   renderPangBoard();
+  animatePangDrop();
+  await new Promise((resolve)=>setTimeout(resolve,180));
   await resolvePangMatches();
   renderPangStatus();
   pangState.busy = false;
@@ -3466,6 +3597,8 @@ async function startRhythmGame(){
 
   rhythmState={active:true,paused:false,pausedAt:0,raf:0,startAt:0,duration,notes,score:0,combo:0,maxCombo:0,hp:100,judgments:{perfect:0,great:0,good:0,miss:0},selectedId,difficulty:diff,lastJudge:"",audioCtx:null,audioElement,songId};
 
+  document.querySelectorAll(".rhythm-lane-fx").forEach((el)=>el.className="rhythm-lane-fx");
+  const judgePop=document.getElementById("rhythmJudgePop");if(judgePop){judgePop.className="rhythm-judge-pop";judgePop.innerHTML="";}
   document.getElementById("rhythmStartButton").disabled=true;
   document.getElementById("rhythmQuitButton").disabled=false;
   setMessage("rhythmMessage",song?`${song.title} · 3초 후 시작!`:"3초 후 시작!");
@@ -3480,6 +3613,72 @@ async function startRhythmGame(){
 }
 
 function rhythmTime(){const offset=getRhythmTimingOffset();if(rhythmState.audioElement&&!rhythmState.audioElement.paused)return rhythmState.audioElement.currentTime*1000+offset;return performance.now()-rhythmState.startAt+offset;}
+
+function pulseRhythmMobileKey(lane,judge="tap"){
+  const button=document.querySelector(`[data-rhythm-lane="${lane}"]`);
+  if(!button)return;
+  button.classList.remove("hit","perfect","great","good","miss");
+  void button.offsetWidth;
+  button.classList.add("hit",judge.toLowerCase());
+  setTimeout(()=>button.classList.remove("hit","perfect","great","good","miss"),180);
+}
+
+function spawnRhythmTapFx(lane,judge="tap"){
+  const stage=document.getElementById("rhythmStageWrap");
+  const laneFx=document.querySelector(`[data-rhythm-fx-lane="${lane}"]`);
+  if(!stage||!laneFx)return;
+
+  const cls=judge.toLowerCase();
+  laneFx.className=`rhythm-lane-fx ${cls} active`;
+  void laneFx.offsetWidth;
+  laneFx.classList.add("active");
+  setTimeout(()=>{ laneFx.className="rhythm-lane-fx"; },360);
+
+  const burst=document.createElement("div");
+  burst.className=`rhythm-hit-burst ${cls}`;
+  burst.style.left=`${(lane+.5)*25}%`;
+  burst.style.top="86.15%";
+  stage.appendChild(burst);
+
+  for(let i=0;i<(judge==="PERFECT"?10:judge==="GREAT"?8:judge==="GOOD"?6:4);i++){
+    const spark=document.createElement("span");
+    spark.className=`rhythm-hit-spark ${cls}`;
+    const angle=Math.PI+(Math.random()*Math.PI);
+    const distance=25+Math.random()*55;
+    spark.style.setProperty("--sx",`${Math.cos(angle)*distance}px`);
+    spark.style.setProperty("--sy",`${Math.sin(angle)*distance}px`);
+    spark.style.setProperty("--sr",`${Math.round(Math.random()*180-90)}deg`);
+    burst.appendChild(spark);
+  }
+  setTimeout(()=>burst.remove(),620);
+
+  stage.classList.remove("rhythm-stage-hit","rhythm-stage-miss");
+  void stage.offsetWidth;
+  stage.classList.add(judge==="MISS"?"rhythm-stage-miss":"rhythm-stage-hit");
+  setTimeout(()=>stage.classList.remove("rhythm-stage-hit","rhythm-stage-miss"),260);
+
+  pulseRhythmMobileKey(lane,judge);
+}
+
+function showRhythmJudgeFx(judge,lane){
+  const pop=document.getElementById("rhythmJudgePop");
+  if(!pop)return;
+  const combo=rhythmState.combo||0;
+  pop.className=`rhythm-judge-pop ${judge.toLowerCase()}`;
+  pop.innerHTML=`<strong>${judge}</strong>${judge!=="MISS"&&combo>=2?`<span>${combo} COMBO</span>`:""}`;
+  pop.style.setProperty("--judge-x",`${(lane+.5)*25}%`);
+  void pop.offsetWidth;
+  pop.classList.add("show");
+  setTimeout(()=>pop.classList.remove("show"),500);
+
+  const comboEl=document.getElementById("rhythmCombo");
+  if(comboEl&&judge!=="MISS"){
+    comboEl.classList.remove("rhythm-combo-pop");
+    void comboEl.offsetWidth;
+    comboEl.classList.add("rhythm-combo-pop");
+    setTimeout(()=>comboEl.classList.remove("rhythm-combo-pop"),260);
+  }
+}
 
 function playRhythmTick(){
   if(rhythmState.audioElement)return;
@@ -3496,12 +3695,27 @@ function hitRhythmLane(lane){
     const delta=Math.abs(note.time-now);
     if(delta<bestDelta){best=note;bestDelta=delta;}
   });
-  if(!best||bestDelta>230){rhythmState.lastJudge="MISS";return;}
+
+  if(!best||bestDelta>230){
+    rhythmState.lastJudge="MISS";
+    spawnRhythmTapFx(lane,"MISS");
+    showRhythmJudgeFx("MISS",lane);
+    return;
+  }
+
   best.judged=true;
-  if(bestDelta<=65){rhythmState.judgments.perfect++;rhythmState.score+=100;rhythmState.lastJudge="PERFECT";}
-  else if(bestDelta<=115){rhythmState.judgments.great++;rhythmState.score+=70;rhythmState.lastJudge="GREAT";}
-  else {rhythmState.judgments.good++;rhythmState.score+=40;rhythmState.lastJudge="GOOD";}
-  rhythmState.combo++;rhythmState.maxCombo=Math.max(rhythmState.maxCombo,rhythmState.combo);playRhythmTick();renderRhythmHud();
+  let judge="GOOD";
+  if(bestDelta<=65){rhythmState.judgments.perfect++;rhythmState.score+=100;judge="PERFECT";}
+  else if(bestDelta<=115){rhythmState.judgments.great++;rhythmState.score+=70;judge="GREAT";}
+  else {rhythmState.judgments.good++;rhythmState.score+=40;judge="GOOD";}
+
+  rhythmState.lastJudge=judge;
+  rhythmState.combo++;
+  rhythmState.maxCombo=Math.max(rhythmState.maxCombo,rhythmState.combo);
+  spawnRhythmTapFx(lane,judge);
+  showRhythmJudgeFx(judge,lane);
+  playRhythmTick();
+  renderRhythmHud();
 }
 
 function rhythmLoop(){
@@ -3509,7 +3723,15 @@ function rhythmLoop(){
   if(rhythmState.paused){rhythmState.raf=requestAnimationFrame(rhythmLoop);return;}
   const now=rhythmTime();
   rhythmState.notes.forEach((note)=>{
-    if(!note.judged&&now-note.time>230){note.judged=true;note.missed=true;rhythmState.judgments.miss++;rhythmState.combo=0;rhythmState.hp=Math.max(0,rhythmState.hp-10);rhythmState.lastJudge="MISS";}
+    if(!note.judged&&now-note.time>230){
+      note.judged=true;note.missed=true;
+      rhythmState.judgments.miss++;
+      rhythmState.combo=0;
+      rhythmState.hp=Math.max(0,rhythmState.hp-10);
+      rhythmState.lastJudge="MISS";
+      spawnRhythmTapFx(note.lane,"MISS");
+      showRhythmJudgeFx("MISS",note.lane);
+    }
   });
   renderRhythmHud();drawRhythm(now);
   if(rhythmState.hp<=0){finishRhythmGame(false,true);return;}
@@ -3576,9 +3798,16 @@ document.getElementById("rhythmStartButton")?.addEventListener("click",()=>{
 });
 document.getElementById("rhythmQuitButton")?.addEventListener("click",()=>finishRhythmGame(true,false));
 document.querySelectorAll("[data-rhythm-lane]").forEach((button)=>button.addEventListener("pointerdown",()=>{
-  const lane=Number(button.dataset.rhythmLane);button.classList.add("hit");setTimeout(()=>button.classList.remove("hit"),100);hitRhythmLane(lane);
+  const lane=Number(button.dataset.rhythmLane);
+  hitRhythmLane(lane);
 }));
-document.addEventListener("keydown",(e)=>{const lane=RHYTHM_KEYS.indexOf(e.key.toLowerCase());if(lane>=0&&rhythmState.active){e.preventDefault();hitRhythmLane(lane);}});
+document.addEventListener("keydown",(e)=>{
+  const lane=RHYTHM_KEYS.indexOf(e.key.toLowerCase());
+  if(lane>=0&&rhythmState.active){
+    e.preventDefault();
+    hitRhythmLane(lane);
+  }
+});
 
 /* =========================================================
    펫
