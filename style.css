@@ -10,13 +10,19 @@ body {
 }
 
 body {
-  font-family: Arial, sans-serif;
-  background: #180e12;
-  color: #ffffff;
+  font-family: "Pretendard", "Noto Sans KR", Arial, sans-serif;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(124, 255, 218, 0.22), transparent 30%),
+    radial-gradient(circle at 85% 20%, rgba(161, 244, 255, 0.18), transparent 28%),
+    #f7fffc;
+
+  color: #24332f;
 }
 
 
-/* 상단 메뉴 */
+/* =========================
+   HEADER
+========================= */
 
 header {
   position: sticky;
@@ -25,101 +31,210 @@ header {
 
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 22px;
 
-  padding: 15px 25px;
+  padding: 14px 24px;
 
-  background: #28151c;
-  border-bottom: 1px solid #57303d;
+  background: rgba(255, 255, 255, 0.92);
+
+  border-bottom: 1px solid #d8f5eb;
+
+  box-shadow:
+    0 5px 18px rgba(73, 171, 142, 0.08);
+
+  backdrop-filter: blur(12px);
 }
+
+
+/* 로고 */
 
 header h1 {
   margin: 0;
-  font-size: 22px;
+
+  font-size: 23px;
+  font-weight: 900;
+
+  color: #28b98d;
+
   white-space: nowrap;
+
+  letter-spacing: -1px;
 }
 
 
-/* 메뉴 */
+/* =========================
+   NAV
+========================= */
 
 nav {
   display: flex;
+  align-items: center;
+
+  gap: 8px;
+
   flex: 1;
-  gap: 7px;
+
   overflow-x: auto;
+
+  scrollbar-width: none;
+}
+
+nav::-webkit-scrollbar {
+  display: none;
 }
 
 nav button {
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid #d7f3e9;
 
-  padding: 10px 14px;
+  border-radius: 13px;
 
-  background: #46242f;
-  color: white;
+  padding: 10px 16px;
 
-  font-weight: bold;
+  background: #f3fffb;
+
+  color: #3a7766;
+
+  font-size: 14px;
+  font-weight: 800;
 
   cursor: pointer;
+
+  white-space: nowrap;
+
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 nav button:hover {
-  background: #c84f6c;
+  transform: translateY(-2px);
+
+  background: #cffff0;
+
+  color: #16966f;
+
+  box-shadow:
+    0 5px 12px rgba(52, 195, 153, 0.16);
 }
 
 
-/* 포인트 */
+/* =========================
+   POINT
+========================= */
 
 header p {
   margin: 0;
 
-  padding: 9px 14px;
+  padding: 10px 17px;
 
-  border-radius: 20px;
+  border-radius: 999px;
 
-  background: #13090d;
+  background: linear-gradient(
+    135deg,
+    #55d9b1,
+    #79e8ca
+  );
 
-  font-weight: bold;
+  color: white;
+
+  font-size: 14px;
+  font-weight: 900;
 
   white-space: nowrap;
+
+  box-shadow:
+    0 5px 15px rgba(49, 190, 149, 0.2);
 }
 
 
-/* 메인 */
+/* =========================
+   MAIN
+========================= */
 
 main {
-  width: min(1100px, calc(100% - 30px));
+  width: min(1050px, calc(100% - 36px));
 
   margin: 0 auto;
 
-  padding: 35px 0;
+  padding: 48px 0 90px;
 }
+
+
+/* 페이지 제목 */
 
 main h2 {
-  font-size: 30px;
+  margin: 0 0 22px;
 
-  margin-top: 0;
+  font-size: 34px;
+  font-weight: 900;
+
+  color: #263c36;
+
+  letter-spacing: -1.5px;
 }
 
 
-/* 기본 박스 */
+/* 설명 문구 */
+
+main > p {
+  margin: 0;
+
+  padding: 28px 30px;
+
+  border: 1px solid #d9f3ea;
+
+  border-radius: 22px;
+
+  background: rgba(255, 255, 255, 0.9);
+
+  color: #638078;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  box-shadow:
+    0 10px 30px rgba(52, 153, 123, 0.08);
+}
+
+
+/* =========================
+   나중에 사용할 카드
+========================= */
 
 .card {
   padding: 25px;
 
   margin-bottom: 18px;
 
-  min-height: 130px;
+  border: 1px solid #d8f4ea;
 
-  border-radius: 18px;
+  border-radius: 22px;
 
-  border: 1px solid #58303c;
+  background: rgba(255, 255, 255, 0.95);
 
-  background: #29171d;
+  box-shadow:
+    0 10px 30px rgba(46, 155, 124, 0.08);
 }
 
 
-/* 모바일 */
+/* 민트 강조 카드 */
+
+.mint-card {
+  background:
+    linear-gradient(
+      135deg,
+      #ecfff9,
+      #ffffff
+    );
+
+  border: 1px solid #c8f3e5;
+}
+
+
+/* =========================
+   MOBILE
+========================= */
 
 @media (max-width: 750px) {
 
@@ -128,23 +243,40 @@ main h2 {
 
     grid-template-columns: 1fr auto;
 
-    padding: 10px;
+    gap: 10px;
+
+    padding: 11px 12px;
+  }
+
+  header h1 {
+    font-size: 19px;
   }
 
   nav {
     grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   nav button {
     flex-shrink: 0;
+
+    padding: 9px 14px;
   }
 
-  header h1 {
-    font-size: 18px;
+  header p {
+    font-size: 12px;
+
+    padding: 8px 12px;
   }
 
   main {
-    width: calc(100% - 20px);
+    width: calc(100% - 22px);
+
+    padding-top: 30px;
   }
 
-} 
+  main h2 {
+    font-size: 28px;
+  }
+
+}
