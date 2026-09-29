@@ -1,34 +1,154 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>민트 가챠</title>
-  
-<link rel="stylesheet" href="style.css?v=2">
+
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
+
 <body>
 
   <header>
+
     <h1>민트 가챠</h1>
 
     <nav>
-      <button>홈</button>
-      <button>가챠</button>
-      <button>도감</button>
-      <button>게임</button>
-      <button>펫</button>
-      <button>카지노</button>
-      <button>관리</button>
+      <button data-page="home" class="active">홈</button>
+      <button data-page="gacha">가챠</button>
+      <button data-page="collection">도감</button>
+      <button data-page="games">게임</button>
+      <button data-page="pet">펫</button>
+      <button data-page="casino">카지노</button>
+      <button data-page="admin">관리</button>
     </nav>
 
-    <p>보유 포인트: 3,000P</p>
+    <p id="pointDisplay">
+      보유 포인트: 3,000P
+    </p>
+
   </header>
 
+
   <main>
-    <h2>홈</h2>
-    <p>사이트 제작 시작!</p>
+
+    <!-- 홈 -->
+    <section id="home" class="page active">
+      <h2>홈</h2>
+
+      <div class="card">
+        이벤트 배너
+      </div>
+
+      <div class="card">
+        홈 캐릭터
+      </div>
+
+      <div class="card">
+        출석 체크
+      </div>
+    </section>
+
+
+    <!-- 가챠 -->
+    <section id="gacha" class="page">
+      <h2>가챠</h2>
+
+      <div class="card">
+        일반 가챠
+      </div>
+
+      <div class="card">
+        한정 가챠
+      </div>
+    </section>
+
+
+    <!-- 도감 -->
+    <section id="collection" class="page">
+      <h2>도감</h2>
+
+      <div class="card">
+        캐릭터 도감
+      </div>
+    </section>
+
+
+    <!-- 게임 -->
+    <section id="games" class="page">
+      <h2>게임</h2>
+
+      <div class="card">
+        카드 짝 맞추기
+      </div>
+
+      <div class="card">
+        캐릭터 팡
+      </div>
+
+      <div class="card">
+        캐릭터 점프
+      </div>
+
+      <div class="card">
+        테트리스
+      </div>
+
+      <div class="card">
+        리듬 탭
+      </div>
+    </section>
+
+
+    <!-- 펫 -->
+    <section id="pet" class="page">
+      <h2>펫</h2>
+
+      <div class="card">
+        펫 키우기
+      </div>
+    </section>
+
+
+    <!-- 카지노 -->
+    <section id="casino" class="page">
+      <h2>카지노</h2>
+
+      <div class="card">
+        가위바위보
+      </div>
+
+      <div class="card">
+        슬롯머신
+      </div>
+
+      <div class="card">
+        블랙잭
+      </div>
+
+      <div class="card">
+        NULL DERBY
+      </div>
+    </section>
+
+
+    <!-- 관리 -->
+    <section id="admin" class="page">
+      <h2>관리</h2>
+
+      <div class="card">
+        관리자 메뉴
+      </div>
+    </section>
+
   </main>
 
+
+  <script src="script.js?v=1"></script>
+
 </body>
+
 </html>
