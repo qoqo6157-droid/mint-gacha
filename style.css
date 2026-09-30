@@ -5522,3 +5522,178 @@ body.gacha-cinematic-open {
     min-height: 190px;
   }
 }
+
+
+/* =========================================================
+   V23 - 모바일 리듬: 판정선 직접 터치 / 스크롤·더블탭 확대 방지
+========================================================= */
+
+/* 예전 DFJK 모바일 버튼은 완전히 제거 */
+.rhythm-mobile-keys {
+  display: none !important;
+}
+
+/* 게임 화면 안에서는 브라우저 제스처보다 리듬 입력을 우선 */
+#rhythmStageWrap {
+  position: relative;
+  touch-action: none !important;
+  overscroll-behavior: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#rhythmCanvas {
+  touch-action: none !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*
+  Canvas 판정선은 y = 560 / 650 ≈ 86.15%.
+  아래 터치 영역은 bottom 3% + height 22%라서
+  영역 중앙이 거의 정확히 판정선에 맞는다.
+*/
+.rhythm-hitline-touch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3%;
+  z-index: 9;
+  height: 22%;
+  display: none;
+  grid-template-columns: repeat(4,1fr);
+  touch-action: none !important;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+}
+
+.rhythm-hitline-touch button {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid rgba(255,255,255,.035);
+  outline: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+/* 판정선 위의 터치 타겟. 버튼처럼 보이지 않고 게임 레인의 일부처럼 보임 */
+.rhythm-hitline-touch button::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 50%;
+  height: 5px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(89,214,175,.20);
+  box-shadow:
+    0 0 0 1px rgba(102,225,187,.12),
+    0 0 12px rgba(83,213,173,.08);
+  transition: transform .08s ease, background .1s ease, box-shadow .1s ease;
+}
+
+/* 아주 약한 타겟 포인트만 표시 */
+.rhythm-hitline-touch button::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 23px;
+  height: 23px;
+  transform: translate(-50%,-50%);
+  border: 1px solid rgba(121,230,197,.18);
+  border-radius: 50%;
+  background: rgba(95,218,181,.035);
+  transition: transform .08s ease, opacity .1s ease, border-color .1s ease;
+}
+
+.rhythm-hitline-touch button.hit::before {
+  transform: translateY(-50%) scaleX(.88);
+}
+
+.rhythm-hitline-touch button.hit::after {
+  transform: translate(-50%,-50%) scale(.78);
+  opacity: .9;
+}
+
+.rhythm-hitline-touch button.hit.perfect::before {
+  background: linear-gradient(90deg,#ffd967,#ff9fce);
+  box-shadow: 0 0 17px rgba(255,218,102,.70),0 0 27px rgba(255,135,196,.25);
+}
+
+.rhythm-hitline-touch button.hit.great::before {
+  background: #79d6ff;
+  box-shadow: 0 0 18px rgba(107,200,255,.62);
+}
+
+.rhythm-hitline-touch button.hit.good::before {
+  background: #65deb8;
+  box-shadow: 0 0 16px rgba(86,218,177,.56);
+}
+
+.rhythm-hitline-touch button.hit.miss::before {
+  background: #ff7486;
+  box-shadow: 0 0 14px rgba(255,93,114,.48);
+}
+
+.rhythm-touch-help {
+  display: none;
+  max-width: 560px;
+  margin: 7px auto 0;
+  color: #769188;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* 터치 기기/모바일에서만 직접 판정선 입력 영역 표시 */
+@media (hover: none), (pointer: coarse), (max-width: 800px) {
+  .rhythm-hitline-touch {
+    display: grid;
+  }
+
+  .rhythm-touch-help {
+    display: block;
+  }
+
+  /* 모바일은 스테이지 자체를 넓게 써서 터치 오입력 감소 */
+  .rhythm-stage-wrap {
+    width: min(100%, 620px);
+    max-width: 620px;
+  }
+}
+
+/* iPhone에서 빠른 탭 시 텍스트 선택/터치 콜아웃까지 차단 */
+@supports (-webkit-touch-callout: none) {
+  #rhythmStageWrap,
+  #rhythmStageWrap * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* 더 이상 존재하지 않는 모바일 키 관련 효과는 숨김 */
+.rhythm-mobile-keys button,
+.rhythm-mobile-keys button.hit {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-hitline-touch button::before,
+  .rhythm-hitline-touch button::after {
+    transition-duration: .01ms !important;
+  }
+}

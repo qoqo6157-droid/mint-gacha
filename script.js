@@ -4117,6 +4117,7 @@ async function startRhythmGame(){
   rhythmState={active:true,paused:false,pausedAt:0,raf:0,startAt:0,duration,notes,score:0,combo:0,maxCombo:0,hp:100,judgments:{perfect:0,great:0,good:0,miss:0},selectedId,difficulty:diff,lastJudge:"",audioCtx:null,audioElement,songId};
 
   document.querySelectorAll(".rhythm-lane-fx").forEach((el)=>el.className="rhythm-lane-fx");
+  document.querySelectorAll("[data-rhythm-touch-lane]").forEach((el)=>el.className="");
   const judgePop=document.getElementById("rhythmJudgePop");if(judgePop){judgePop.className="rhythm-judge-pop";judgePop.innerHTML="";}
   document.getElementById("rhythmStartButton").disabled=true;
   document.getElementById("rhythmQuitButton").disabled=false;
@@ -4133,13 +4134,17 @@ async function startRhythmGame(){
 
 function rhythmTime(){const offset=getRhythmTimingOffset();if(rhythmState.audioElement&&!rhythmState.audioElement.paused)return rhythmState.audioElement.currentTime*1000+offset;return performance.now()-rhythmState.startAt+offset;}
 
-function pulseRhythmMobileKey(lane,judge="tap"){
-  const button=document.querySelector(`[data-rhythm-lane="${lane}"]`);
-  if(!button)return;
-  button.classList.remove("hit","perfect","great","good","miss");
-  void button.offsetWidth;
-  button.classList.add("hit",judge.toLowerCase());
-  setTimeout(()=>button.classList.remove("hit","perfect","great","good","miss"),180);
+function pulseRhythmTouchLane(lane,judge="tap"){
+  const zone=document.querySelector(`[data-rhythm-touch-lane="${lane}"]`);
+  if(!zone)return;
+
+  zone.classList.remove("hit","perfect","great","good","miss");
+  void zone.offsetWidth;
+  zone.classList.add("hit",judge.toLowerCase());
+
+  setTimeout(()=>{
+    zone.classList.remove("hit","perfect","great","good","miss");
+  },190);
 }
 
 function spawnRhythmTapFx(lane,judge="tap"){
@@ -4176,7 +4181,7 @@ function spawnRhythmTapFx(lane,judge="tap"){
   stage.classList.add(judge==="MISS"?"rhythm-stage-miss":"rhythm-stage-hit");
   setTimeout(()=>stage.classList.remove("rhythm-stage-hit","rhythm-stage-miss"),260);
 
-  pulseRhythmMobileKey(lane,judge);
+  pulseRhythmTouchLane(lane,judge);
 }
 
 function showRhythmJudgeFx(judge,lane){
@@ -4264,7 +4269,16 @@ function drawRhythm(now){
   ctx.fillStyle="#10201b";ctx.fillRect(0,0,w,h);
   for(let i=0;i<4;i++){ctx.fillStyle=i%2?"#17332a":"#142b24";ctx.fillRect(i*laneW,0,laneW,h);ctx.strokeStyle="rgba(255,255,255,.07)";ctx.strokeRect(i*laneW,0,laneW,h);}
   ctx.fillStyle="#58d3ad";ctx.fillRect(0,judgeY,w,4);
-  ctx.fillStyle="rgba(255,255,255,.65)";ctx.font="bold 18px sans-serif";ctx.textAlign="center";RHYTHM_KEYS.forEach((k,i)=>ctx.fillText(k.toUpperCase(),i*laneW+laneW/2,h-28));
+
+  // 데스크톱에서는 키보드 힌트를 남기되, 모바일에는 DFJK 문자를 표시하지 않는다.
+  const showKeyboardHints=window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches && window.innerWidth>800;
+  if(showKeyboardHints){
+    ctx.fillStyle="rgba(255,255,255,.55)";
+    ctx.font="bold 16px sans-serif";
+    ctx.textAlign="center";
+    RHYTHM_KEYS.forEach((k,i)=>ctx.fillText(k.toUpperCase(),i*laneW+laneW/2,h-28));
+  }
+
   const travel=1800/speed;
   rhythmState.notes.forEach((note)=>{
     if(note.judged)return;
@@ -4316,10 +4330,41 @@ document.getElementById("rhythmStartButton")?.addEventListener("click",()=>{
   void startRhythmGame();
 });
 document.getElementById("rhythmQuitButton")?.addEventListener("click",()=>finishRhythmGame(true,false));
-document.querySelectorAll("[data-rhythm-lane]").forEach((button)=>button.addEventListener("pointerdown",()=>{
-  const lane=Number(button.dataset.rhythmLane);
+
+function rhythmTouchLaneFromEvent(event){
+  const button=event.currentTarget;
+  const lane=Number(button?.dataset?.rhythmTouchLane);
+  if(!Number.isInteger(lane)||lane<0||lane>3)return;
+
+  // 모바일 Safari: 탭이 페이지 스크롤/더블탭 확대 제스처로 해석되지 않게 차단.
+  event.preventDefault();
+  event.stopPropagation();
   hitRhythmLane(lane);
-}));
+}
+
+document.querySelectorAll("[data-rhythm-touch-lane]").forEach((button)=>{
+  button.addEventListener("pointerdown",rhythmTouchLaneFromEvent,{passive:false});
+  button.addEventListener("contextmenu",(event)=>event.preventDefault());
+});
+
+// 판정선에서 손가락이 조금 움직여도 페이지가 위/아래로 끌려가지 않게 한다.
+const rhythmStageWrap=document.getElementById("rhythmStageWrap");
+rhythmStageWrap?.addEventListener("touchmove",(event)=>{
+  if(event.cancelable)event.preventDefault();
+},{passive:false});
+
+// iPhone Safari의 빠른 연속 탭 확대를 리듬 스테이지 안에서만 차단.
+let rhythmLastTouchEnd=0;
+rhythmStageWrap?.addEventListener("touchend",(event)=>{
+  const now=Date.now();
+  if(now-rhythmLastTouchEnd<350 && event.cancelable)event.preventDefault();
+  rhythmLastTouchEnd=now;
+},{passive:false});
+
+rhythmStageWrap?.addEventListener("gesturestart",(event)=>{
+  if(event.cancelable)event.preventDefault();
+},{passive:false});
+
 document.addEventListener("keydown",(e)=>{
   const lane=RHYTHM_KEYS.indexOf(e.key.toLowerCase());
   if(lane>=0&&rhythmState.active){

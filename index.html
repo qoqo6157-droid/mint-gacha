@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
   <header>
@@ -270,7 +270,7 @@
         <button class="game-menu-card" data-game-view="pang"><span>💥</span><strong>캐릭터 팡</strong><small>6×6 매치 퍼즐</small></button>
         <button class="game-menu-card" data-game-view="runner"><span>🏃</span><strong>캐릭터 점프</strong><small>2단 점프 러너</small></button>
         <button class="game-menu-card" data-game-view="tetris"><span>🧱</span><strong>테트리스</strong><small>HOLD · NEXT 5</small></button>
-        <button class="game-menu-card" data-game-view="rhythm"><span>🎵</span><strong>리듬 탭</strong><small>D F J K</small></button>
+        <button class="game-menu-card" data-game-view="rhythm"><span>🎵</span><strong>리듬 탭</strong><small>타이밍 선 터치</small></button>
       </div>
 
       <!-- 카드 짝 맞추기 -->
@@ -485,22 +485,27 @@
 
         <div class="rhythm-stage-wrap" id="rhythmStageWrap">
           <canvas id="rhythmCanvas" width="520" height="650"></canvas>
+
           <div class="rhythm-tap-fx" id="rhythmTapFx" aria-hidden="true">
             <div class="rhythm-lane-fx" data-rhythm-fx-lane="0"></div>
             <div class="rhythm-lane-fx" data-rhythm-fx-lane="1"></div>
             <div class="rhythm-lane-fx" data-rhythm-fx-lane="2"></div>
             <div class="rhythm-lane-fx" data-rhythm-fx-lane="3"></div>
           </div>
+
+          <!-- 모바일에서는 별도 DFJK 버튼 없이 판정선의 각 레인을 직접 터치 -->
+          <div class="rhythm-hitline-touch" id="rhythmHitlineTouch" aria-label="리듬게임 판정선 터치 영역">
+            <button type="button" data-rhythm-touch-lane="0" aria-label="왼쪽 첫 번째 레인"></button>
+            <button type="button" data-rhythm-touch-lane="1" aria-label="왼쪽 두 번째 레인"></button>
+            <button type="button" data-rhythm-touch-lane="2" aria-label="오른쪽 두 번째 레인"></button>
+            <button type="button" data-rhythm-touch-lane="3" aria-label="오른쪽 첫 번째 레인"></button>
+          </div>
+
           <div class="rhythm-judge-pop" id="rhythmJudgePop" aria-hidden="true"></div>
           <div class="rhythm-countdown hidden" id="rhythmCountdown">3</div>
         </div>
 
-        <div class="rhythm-mobile-keys">
-          <button data-rhythm-lane="0">D</button>
-          <button data-rhythm-lane="1">F</button>
-          <button data-rhythm-lane="2">J</button>
-          <button data-rhythm-lane="3">K</button>
-        </div>
+        <p class="rhythm-touch-help">모바일: 노트가 아래 판정선에 닿을 때 해당 레인을 직접 터치</p>
 
         <div class="game-action-row">
           <button class="mint-button" id="rhythmStartButton">게임 시작</button>
@@ -1389,6 +1394,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=22"></script>
+  <script src="script.js?v=23"></script>
 </body>
 </html>
