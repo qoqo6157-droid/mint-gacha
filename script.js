@@ -1689,9 +1689,16 @@ function collectionDetailHasFullArt(char) {
   return Boolean(char?.full_image_url);
 }
 
+function collectionDetailCanViewFullArt(char) {
+  if (!char || char.rarity !== "SSR") return false;
+  return getLimitBreakLevel(char.id) === 3;
+}
+
 function collectionDetailDisplayContext(char) {
   if (!char) return "collection";
-  if (collectionDetailArtMode === "full" && collectionDetailHasFullArt(char)) return "collection-full";
+  if (collectionDetailArtMode === "full" && collectionDetailCanViewFullArt(char) && collectionDetailHasFullArt(char)) {
+    return "collection-full";
+  }
   return "collection-base";
 }
 
@@ -1712,7 +1719,9 @@ function renderCollectionDetail() {
   const duplicate = Math.max(0, owned - 1);
   const canBreak = char.rarity === "SSR" && lb < 3 && duplicate >= 1;
   const hasFullArt = collectionDetailHasFullArt(char);
-  const imageUrl = locked ? "" : characterDisplayImage(char, collectionDetailDisplayContext(char));
+  const canViewFullArt = collectionDetailCanViewFullArt(char);
+  const wantsLockedFullArt = !locked && hasFullArt && collectionDetailArtMode === "full" && !canViewFullArt;
+  const imageUrl = locked || wantsLockedFullArt ? "" : characterDisplayImage(char, collectionDetailDisplayContext(char));
 
   const image = document.getElementById("collectionDetailImage");
   const fallback = document.getElementById("collectionDetailFallback");
@@ -1743,11 +1752,19 @@ function renderCollectionDetail() {
       image.alt = `${char.name} ${collectionDetailArtMode === "full" ? "풀돌 후" : "풀돌 전"} 일러스트`;
       image.classList.remove("hidden");
       fallback.classList.add("hidden");
+      fallback.classList.remove("full-lock");
     } else {
       image.removeAttribute("src");
       image.classList.add("hidden");
       fallback.classList.remove("hidden");
-      fallback.textContent = locked ? "🔒" : (char.is_limited ? "LIMITED" : char.rarity);
+
+      if (wantsLockedFullArt) {
+        fallback.innerHTML = `<div class="collection-full-lock-mark">🔒</div><strong>FULL ART LOCKED</strong><small>3단계 한계돌파 후 확인 가능</small>`;
+        fallback.classList.add("full-lock");
+      } else {
+        fallback.textContent = locked ? "🔒" : (char.is_limited ? "LIMITED" : char.rarity);
+        fallback.classList.remove("full-lock");
+      }
     }
   }
 
@@ -1756,11 +1773,18 @@ function renderCollectionDetail() {
     artSwitch.classList.toggle("hidden", !visible);
     if (visible) {
       if (fullArtSwitchText) {
-        fullArtSwitchText.textContent = lb === 3 ? "FULL 일러 활성" : "풀돌 후 일러 미리보기";
+        fullArtSwitchText.textContent = lb === 3 ? "FULL 일러 활성" : "3단계 한계돌파 필요";
       }
       artSwitch.querySelectorAll("[data-collection-art-mode]").forEach((button) => {
         const mode = button.dataset.collectionArtMode;
+        const isFull = mode === "full";
         button.classList.toggle("active", mode === collectionDetailArtMode);
+        button.classList.toggle("locked", isFull && !canViewFullArt);
+        button.disabled = false;
+        if (isFull) {
+          button.setAttribute("aria-disabled", String(!canViewFullArt));
+          button.title = canViewFullArt ? "풀돌 후 일러스트 보기" : "3단계 한계돌파 후 열립니다";
+        }
       });
     }
   }
