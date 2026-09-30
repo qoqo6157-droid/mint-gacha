@@ -76,6 +76,7 @@ let gachaSequence = {
 };
 
 let collectionDetailCharacterId = null;
+let collectionDetailArtMode = "base";
 
 // V6 public/operation data
 let eventBanners = [];
@@ -214,14 +215,31 @@ function getLimitBreakLevel(characterId) {
 
 function characterDisplayImage(character, context = "collection") {
   if (!character) return "";
+
+  const baseImage = character.image_url || "";
+  const fullImage = character.full_image_url || "";
   const level = getLimitBreakLevel(character.id);
-  if (level === 3 && character.full_image_url) {
-    if (context === "home" && saveData.homeIllustrationMode?.[character.id] === "base") {
-      return character.image_url || "";
-    }
-    return character.full_image_url;
+
+  // 가챠 / 교환소는 항상 기본 일러스트를 사용
+  if (context === "gacha" || context === "exchange") {
+    return baseImage;
   }
-  return character.image_url || "";
+
+  // 도감 상세 팝업에서 모드 직접 선택
+  if (context === "collection-base") {
+    return baseImage;
+  }
+  if (context === "collection-full") {
+    return fullImage || baseImage;
+  }
+
+  if (level === 3 && fullImage) {
+    if (context === "home" && saveData.homeIllustrationMode?.[character.id] === "base") {
+      return baseImage;
+    }
+    return fullImage;
+  }
+  return baseImage;
 }
 
 function artHTML(character, context = "collection", label = "CHARACTER") {
@@ -1203,7 +1221,7 @@ function showGachaResults(type, results) {
         <div class="gacha-card-glow"></div>
         <span class="gacha-result-label ${isLimited ? "limited" : ""}">${escapeHTML(resultLabel)}</span>
         ${isLimited ? `<span class="limited-ribbon">✦ LIMITED ✦</span>` : ""}
-        <div class="gacha-result-image">${artHTML(char)}</div>
+        <div class="gacha-result-image">${artHTML(char, "gacha")}</div>
         <div class="gacha-result-body">
           <strong>${escapeHTML(char.name)}</strong>
           <small>${isLimited ? "LIMITED · " : ""}${escapeHTML(char.rarity)} · 보유 ${owned}장</small>
@@ -1330,7 +1348,7 @@ function renderNormalExchange() {
   }
   grid.innerHTML = list.map((char) => `
     <div class="exchange-card">
-      <div class="exchange-card-image">${artHTML(char)}</div>
+      <div class="exchange-card-image">${artHTML(char, "exchange")}</div>
       <div class="exchange-card-body">
         <strong>${escapeHTML(char.name)}</strong>
         <small>현재 보유 ${getOwnedCount(char.id)}장 · ${generalSettings.exchangePt} PT</small>
@@ -1367,7 +1385,7 @@ function renderLimitedExchange() {
   }
   grid.innerHTML = list.map((char) => `
     <div class="exchange-card">
-      <div class="exchange-card-image">${artHTML(char)}</div>
+      <div class="exchange-card-image">${artHTML(char, "exchange")}</div>
       <div class="exchange-card-body">
         <strong>${escapeHTML(char.name)}</strong>
         <small>현재 보유 ${getOwnedCount(char.id)}장 · ${limitedSettings.exchangeLpt} LPT</small>
@@ -1480,6 +1498,21 @@ function renderCollection() {
   });
 }
 
+function collectionDetailHasFullArt(char) {
+  return Boolean(char?.full_image_url);
+}
+
+function collectionDetailDisplayContext(char) {
+  if (!char) return "collection";
+  if (collectionDetailArtMode === "full" && collectionDetailHasFullArt(char)) return "collection-full";
+  return "collection-base";
+}
+
+function setCollectionDetailArtMode(mode) {
+  collectionDetailArtMode = mode === "full" ? "full" : "base";
+  if (collectionDetailCharacterId) renderCollectionDetail();
+}
+
 function renderCollectionDetail() {
   const id = collectionDetailCharacterId;
   const char = characters.find((c) => c.id === id);
@@ -1491,7 +1524,8 @@ function renderCollectionDetail() {
   const lb = char.rarity === "SSR" ? getLimitBreakLevel(id) : 0;
   const duplicate = Math.max(0, owned - 1);
   const canBreak = char.rarity === "SSR" && lb < 3 && duplicate >= 1;
-  const imageUrl = locked ? "" : characterDisplayImage(char, "collection");
+  const hasFullArt = collectionDetailHasFullArt(char);
+  const imageUrl = locked ? "" : characterDisplayImage(char, collectionDetailDisplayContext(char));
 
   const image = document.getElementById("collectionDetailImage");
   const fallback = document.getElementById("collectionDetailFallback");
@@ -1507,6 +1541,8 @@ function renderCollectionDetail() {
   const homeButton = document.getElementById("collectionDetailHomeButton");
   const lockedBox = document.getElementById("collectionDetailLocked");
   const card = document.getElementById("collectionDetailCard");
+  const artSwitch = document.getElementById("collectionArtSwitch");
+  const fullArtSwitchText = document.getElementById("collectionFullArtSwitchText");
 
   if (name) name.textContent = locked ? "???" : char.name;
   if (rarity) {
@@ -1517,7 +1553,7 @@ function renderCollectionDetail() {
   if (image && fallback) {
     if (imageUrl) {
       image.src = imageUrl;
-      image.alt = `${char.name} 전체 일러스트`;
+      image.alt = `${char.name} ${collectionDetailArtMode === "full" ? "풀돌 후" : "풀돌 전"} 일러스트`;
       image.classList.remove("hidden");
       fallback.classList.add("hidden");
     } else {
@@ -1525,6 +1561,20 @@ function renderCollectionDetail() {
       image.classList.add("hidden");
       fallback.classList.remove("hidden");
       fallback.textContent = locked ? "🔒" : (char.is_limited ? "LIMITED" : char.rarity);
+    }
+  }
+
+  if (artSwitch) {
+    const visible = !locked && hasFullArt;
+    artSwitch.classList.toggle("hidden", !visible);
+    if (visible) {
+      if (fullArtSwitchText) {
+        fullArtSwitchText.textContent = lb === 3 ? "FULL 일러 활성" : "풀돌 후 일러 미리보기";
+      }
+      artSwitch.querySelectorAll("[data-collection-art-mode]").forEach((button) => {
+        const mode = button.dataset.collectionArtMode;
+        button.classList.toggle("active", mode === collectionDetailArtMode);
+      });
     }
   }
 
@@ -1569,6 +1619,7 @@ function openCollectionDetail(id) {
   const char = characters.find((c) => c.id === id);
   if (!char) return;
   collectionDetailCharacterId = id;
+  collectionDetailArtMode = "base";
   renderCollectionDetail();
   document.getElementById("collectionDetailModal")?.classList.remove("hidden");
   document.body.classList.add("modal-open");
@@ -1577,6 +1628,7 @@ function openCollectionDetail(id) {
 function closeCollectionDetail() {
   document.getElementById("collectionDetailModal")?.classList.add("hidden");
   collectionDetailCharacterId = null;
+  collectionDetailArtMode = "base";
   if (document.querySelectorAll(".modal-backdrop:not(.hidden)").length === 0) {
     document.body.classList.remove("modal-open");
   }
@@ -1585,6 +1637,12 @@ function closeCollectionDetail() {
 document.getElementById("closeCollectionDetailModal")?.addEventListener("click", closeCollectionDetail);
 document.getElementById("collectionDetailModal")?.addEventListener("click", (event) => {
   if (event.target.id === "collectionDetailModal") closeCollectionDetail();
+});
+
+document.querySelectorAll("[data-collection-art-mode]").forEach((button) => {
+  button.addEventListener("click", () => {
+    setCollectionDetailArtMode(button.dataset.collectionArtMode);
+  });
 });
 
 document.getElementById("collectionDetailLimitButton")?.addEventListener("click", () => {

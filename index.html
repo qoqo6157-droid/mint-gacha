@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
   <header>
@@ -1305,6 +1305,18 @@
             <img class="hidden" id="collectionDetailImage" alt="">
             <div class="collection-detail-fallback" id="collectionDetailFallback">CHARACTER</div>
           </div>
+
+          <div class="collection-art-switch hidden" id="collectionArtSwitch">
+            <button type="button" class="active" data-collection-art-mode="base">
+              <span>풀돌 전</span>
+              <small>기본 일러</small>
+            </button>
+            <button type="button" data-collection-art-mode="full">
+              <span>풀돌 후</span>
+              <small id="collectionFullArtSwitchText">FULL 일러</small>
+            </button>
+          </div>
+
           <div class="collection-detail-rarity" id="collectionDetailRarity">SSR</div>
           <div class="collection-detail-full-badge hidden" id="collectionDetailFullBadge">FULL</div>
         </div>
@@ -1399,6 +1411,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=25"></script>
+  <script src="script.js?v=26"></script>
 </body>
 </html>

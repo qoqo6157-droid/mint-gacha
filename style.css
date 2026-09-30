@@ -5740,3 +5740,60 @@ body.gacha-cinematic-open {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* =========================================================
+   V26 - 도감 상세 일러 전환 + 가챠/교환소 기본 일러 고정
+========================================================= */
+
+.collection-art-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+
+.collection-art-switch button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 9px 10px;
+  border: 1px solid #d8ece6;
+  border-radius: 13px;
+  background: #f8fffc;
+  color: #5f7f74;
+  font-weight: 900;
+  cursor: pointer;
+  transition: .15s ease;
+}
+
+.collection-art-switch button span {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.collection-art-switch button small {
+  font-size: 9px;
+  color: #89a097;
+  line-height: 1.25;
+}
+
+.collection-art-switch button.active {
+  border-color: #89dcc0;
+  background: linear-gradient(135deg,#e9fff7,#ffffff);
+  color: #1d9f76;
+  box-shadow: 0 0 0 2px rgba(121,218,184,.12) inset;
+}
+
+.collection-art-switch button.active small {
+  color: #42a788;
+}
+
+@media (max-width: 520px) {
+  .collection-art-switch {
+    grid-template-columns: 1fr;
+  }
+}
