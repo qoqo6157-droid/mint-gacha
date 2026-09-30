@@ -3490,8 +3490,17 @@ function runnerLoop(now) {
   runnerState.holes = runnerState.holes.filter((h) => h.x + h.w > -20);
 
   const hitObstacle = runnerState.obstacles.some((o) => p.x + 34 > o.x && p.x < o.x + o.w && p.y + 46 > o.y && p.y < o.y + o.h);
-  const fell = p.y > 340;
-  if (hitObstacle || fell) {
+
+  // 구멍 위에서 점프에 실패해 발이 지면 높이 아래로 내려가기 시작하는 순간 즉시 게임 오버.
+  // 예전처럼 화면 아래까지 한참 떨어질 때까지 기다리지 않는다.
+  const fellIntoHole =
+    ground >= 900 &&
+    p.vy >= 0 &&
+    (p.y + 48) >= 270;
+
+  const fellOutOfScreen = p.y > 340;
+
+  if (hitObstacle || fellIntoHole || fellOutOfScreen) {
     finishRunnerGame(false);
     return;
   }
