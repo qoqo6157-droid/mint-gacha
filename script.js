@@ -5872,7 +5872,13 @@ async function loadV6PublicData(){
       supabaseClient.from("pet_types").select("*").order("sort_order",{ascending:true}).order("created_at",{ascending:true}),
       supabaseClient.from("site_settings").select("key,value").in("key",["global_point_grant","banner_master"])
     ]);
-    if(!bannerRes.error)eventBanners=(bannerRes.data||[]).filter((b)=>b.enabled||isAdmin);
+    if(!bannerRes.error){
+      eventBanners=(bannerRes.data||[]).filter((b)=>b.enabled||isAdmin);
+    }else{
+      console.error("배너 불러오기 실패:",bannerRes.error);
+      eventBanners=[];
+      if(isAdmin)setMessage("bannerFormMessage",`배너 목록 불러오기 실패: ${bannerRes.error.message} · setup_v19.sql 실행 여부를 확인해주세요.`,"error");
+    }
     if(!songRes.error)rhythmSongs=(songRes.data||[]).filter((s)=>s.is_public||isAdmin);
     if(!petRes.error)petTypes=(petRes.data||[]).filter((p)=>p.is_public||isAdmin);
     if(!opsSettingRes.error){for(const row of (opsSettingRes.data||[])){if(row.key==="global_point_grant")globalPointGrantV6=row.value||null;if(row.key==="banner_master")bannerMasterEnabledV6=row.value?.enabled!==false;}}
@@ -5889,27 +5895,119 @@ function addRemoteFontV6(banner){
   document.head.appendChild(style);
 }
 
+function bannerAnimationClassV19(animation){
+  const allowed=["pulse","float","bounce","sway","shimmer","neon-flicker","heartbeat"];
+  return allowed.includes(animation)?`banner-anim-${animation}`:"";
+}
+
+function bannerNeonShadowV19(color,strength=55){
+  const s=Math.max(0,Math.min(100,Number(strength)||0))/100;
+  if(s<=0)return "none";
+  const a1=Math.max(.16,Math.min(.95,.30+s*.55));
+  const a2=Math.max(.10,Math.min(.75,.16+s*.44));
+  const r1=Math.round(4+s*8);
+  const r2=Math.round(10+s*18);
+  return `0 0 ${r1}px ${hexToRgbaV19(color,a1)}, 0 0 ${r2}px ${hexToRgbaV19(color,a2)}`;
+}
+
+function hexToRgbaV19(hex,alpha){
+  const value=String(hex||"#35c597").replace("#","");
+  const normalized=value.length===3?value.split("").map((x)=>x+x).join(""):value.padEnd(6,"0").slice(0,6);
+  const n=parseInt(normalized,16);
+  if(!Number.isFinite(n))return `rgba(53,197,151,${alpha})`;
+  const r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function clearBannerAnimationClassesV19(el){
+  if(!el)return;
+  [...el.classList].filter((x)=>x.startsWith("banner-anim-")).forEach((x)=>el.classList.remove(x));
+}
+
+function applyBannerTextStyleV19(el,b){
+  if(!el)return;
+  clearBannerAnimationClassesV19(el);
+  const textColor=b.text_color||"#1f5142";
+  const neonColor=b.neon_color||"#35c597";
+  const strength=Number(b.neon_strength??55);
+  el.style.fontSize=`${Number(b.font_size||32)}px`;
+  el.style.color=textColor;
+  el.style.webkitTextStroke=`${strength>0?Math.max(.35,strength/85):0}px ${neonColor}`;
+  el.style.textShadow=bannerNeonShadowV19(neonColor,strength);
+  el.style.fontFamily=b.font_family?`'${b.font_family}', sans-serif`:"";
+  const cls=bannerAnimationClassV19(b.animation|| (b.pulse?"pulse":"none"));
+  if(cls)el.classList.add(cls);
+}
+
 function renderV6HomeBanners(){
-  const section=document.getElementById("homeEventBanner")?.closest(".home-section");if(section)section.style.display=bannerMasterEnabledV6?"":"none";if(!bannerMasterEnabledV6)return;
-  const active=eventBanners.filter((b)=>b.enabled).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const banner=document.getElementById("homeEventBanner"),wrap=document.getElementById("homeBannerTextWrap"),title=document.getElementById("homeBannerTitle"),text=document.getElementById("homeBannerText"),image=document.getElementById("homeBannerImage"),dots=document.getElementById("homeBannerDots"),prev=document.getElementById("homeBannerPrev"),next=document.getElementById("homeBannerNext");
+  const section=document.getElementById("homeEventBanner")?.closest(".home-section");
+  const active=eventBanners
+    .filter((b)=>b.enabled)
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+
+  const banner=document.getElementById("homeEventBanner"),
+        wrap=document.getElementById("homeBannerTextWrap"),
+        title=document.getElementById("homeBannerTitle"),
+        text=document.getElementById("homeBannerText"),
+        image=document.getElementById("homeBannerImage"),
+        dots=document.getElementById("homeBannerDots"),
+        prev=document.getElementById("homeBannerPrev"),
+        next=document.getElementById("homeBannerNext");
+
   if(!banner||!wrap||!title||!text||!image)return;
   if(bannerSlideTimer){clearInterval(bannerSlideTimer);bannerSlideTimer=null;}
-  if(!active.length){
-    banner.classList.remove("custom-banner");wrap.classList.remove("banner-pulse");wrap.removeAttribute("style");banner.style.backgroundImage="";title.style="";text.style="";image.style="";
-    if(dots)dots.innerHTML="";prev?.classList.add("hidden");next?.classList.add("hidden");
-    renderHomeBanner();return;
+
+  // 중요: 관리자가 등록하지 않은 픽업을 자동으로 배너화하지 않음.
+  // 전체 OFF 또는 등록된 활성 배너 0개면 이벤트 섹션 자체를 숨긴다.
+  if(!bannerMasterEnabledV6 || active.length===0){
+    if(section)section.style.display="none";
+    banner.classList.remove("custom-banner");
+    wrap.removeAttribute("style");
+    clearBannerAnimationClassesV19(title);
+    title.removeAttribute("style");
+    text.removeAttribute("style");
+    image.removeAttribute("style");
+    banner.style.backgroundImage="";
+    if(dots)dots.innerHTML="";
+    prev?.classList.add("hidden");
+    next?.classList.add("hidden");
+    return;
   }
+
+  if(section)section.style.display="";
   activeBannerIndex=((activeBannerIndex%active.length)+active.length)%active.length;
-  const b=active[activeBannerIndex];addRemoteFontV6(b);
-  banner.classList.add("custom-banner");banner.style.backgroundImage=b.image_url?`url('${b.image_url}')`:"linear-gradient(135deg,#c9f7e8,#f8fffc)";
-  wrap.style.left=`${Number(b.x_pct??25)}%`;wrap.style.top=`${Number(b.y_pct??50)}%`;wrap.classList.toggle("banner-pulse",Boolean(b.pulse));
-  title.textContent=b.text||"이벤트";title.style.fontSize=`${Number(b.font_size||32)}px`;title.style.color=b.neon_color||"#35c597";title.style.textShadow=`0 0 12px ${b.neon_color||"#35c597"}55`;title.style.fontFamily=b.font_family?`'${b.font_family}', sans-serif`:"";
-  text.textContent="배너를 눌러 가챠로 이동하세요.";text.style.fontFamily=title.style.fontFamily;image.innerHTML="";
+  const b=active[activeBannerIndex];
+  addRemoteFontV6(b);
+
+  banner.classList.add("custom-banner");
+  banner.style.backgroundImage=b.image_url?`url('${b.image_url}')`:"linear-gradient(135deg,#c9f7e8,#f8fffc)";
+
+  wrap.style.left=`${Number(b.x_pct??25)}%`;
+  wrap.style.top=`${Number(b.y_pct??50)}%`;
+
+  title.textContent=b.text||"이벤트";
+  applyBannerTextStyleV19(title,b);
+
+  text.textContent="배너를 눌러 가챠로 이동하세요.";
+  text.style.fontFamily=title.style.fontFamily;
+  image.innerHTML="";
+
   if(dots)dots.innerHTML=active.map((_,i)=>`<button class="banner-dot ${i===activeBannerIndex?"active":""}" data-banner-dot="${i}" aria-label="배너 ${i+1}"></button>`).join("");
-  dots?.querySelectorAll("[data-banner-dot]").forEach((el)=>el.addEventListener("click",()=>{activeBannerIndex=Number(el.dataset.bannerDot)||0;renderV6HomeBanners();}));
-  const multi=active.length>1;prev?.classList.toggle("hidden",!multi);next?.classList.toggle("hidden",!multi);
-  if(multi)bannerSlideTimer=setInterval(()=>{activeBannerIndex=(activeBannerIndex+1)%active.length;renderV6HomeBanners();},5000);
+  dots?.querySelectorAll("[data-banner-dot]").forEach((el)=>el.addEventListener("click",()=>{
+    activeBannerIndex=Number(el.dataset.bannerDot)||0;
+    renderV6HomeBanners();
+  }));
+
+  const multi=active.length>1;
+  prev?.classList.toggle("hidden",!multi);
+  next?.classList.toggle("hidden",!multi);
+
+  if(multi){
+    bannerSlideTimer=setInterval(()=>{
+      activeBannerIndex=(activeBannerIndex+1)%active.length;
+      renderV6HomeBanners();
+    },5000);
+  }
 }
 
 document.getElementById("homeBannerPrev")?.addEventListener("click",(e)=>{e.stopPropagation();const n=eventBanners.filter((b)=>b.enabled).length;if(n){activeBannerIndex=(activeBannerIndex-1+n)%n;renderV6HomeBanners();}});
@@ -6043,24 +6141,70 @@ let bannerPreviewObjectUrlV8=null;
 let bannerPreviewFontUrlV8=null;
 let bannerPreviewFontNameV8="";
 
+function bannerInputValueV19(id,fallback=""){
+  const el=document.getElementById(id);
+  return el?.value??fallback;
+}
+
+function bannerDraftV19(){
+  return {
+    text:bannerInputValueV19("bannerTextInput","").trim()||"이벤트 문구",
+    font_size:Math.max(16,Math.min(80,Number(bannerInputValueV19("bannerFontSizeInput",32))||32)),
+    x_pct:Math.max(0,Math.min(100,Number(bannerInputValueV19("bannerXInput",25))||0)),
+    y_pct:Math.max(0,Math.min(100,Number(bannerInputValueV19("bannerYInput",50))||0)),
+    text_color:bannerInputValueV19("bannerTextColorInput","#1f5142"),
+    neon_color:bannerInputValueV19("bannerNeonColorInput","#35c597"),
+    neon_strength:Math.max(0,Math.min(100,Number(bannerInputValueV19("bannerNeonStrengthInput",55))||0)),
+    animation:bannerInputValueV19("bannerAnimationInput","none")
+  };
+}
+
+function updateBannerColorReadoutsV19(){
+  const textColor=bannerInputValueV19("bannerTextColorInput","#1f5142");
+  const neonColor=bannerInputValueV19("bannerNeonColorInput","#35c597");
+  const strength=Math.max(0,Math.min(100,Number(bannerInputValueV19("bannerNeonStrengthInput",55))||0));
+  const textCode=document.getElementById("bannerTextColorCode");
+  const neonCode=document.getElementById("bannerNeonColorCode");
+  const strengthValue=document.getElementById("bannerNeonStrengthValue");
+  if(textCode)textCode.textContent=textColor;
+  if(neonCode)neonCode.textContent=neonColor;
+  if(strengthValue)strengthValue.textContent=`${strength}%`;
+}
+
 function updateBannerEditorPreviewV8(){
-  const preview=document.getElementById("bannerEditorPreview"),text=document.getElementById("bannerEditorPreviewText");
+  const preview=document.getElementById("bannerEditorPreview");
+  const text=document.getElementById("bannerEditorPreviewText");
   if(!preview||!text)return;
-  const x=Math.max(0,Math.min(100,Number(document.getElementById("bannerXInput")?.value)||0));
-  const y=Math.max(0,Math.min(100,Number(document.getElementById("bannerYInput")?.value)||0));
-  const size=Math.max(16,Math.min(80,Number(document.getElementById("bannerFontSizeInput")?.value)||32));
-  const color=document.getElementById("bannerColorInput")?.value||"#35c597";
-  text.textContent=document.getElementById("bannerTextInput")?.value.trim()||"이벤트 문구";
-  text.style.left=`${x}%`;text.style.top=`${y}%`;text.style.fontSize=`${size}px`;text.style.color=color;text.style.textShadow=`0 0 12px ${color}66`;
+
+  const draft=bannerDraftV19();
+  updateBannerColorReadoutsV19();
+
+  text.textContent=draft.text;
+  text.style.left=`${draft.x_pct}%`;
+  text.style.top=`${draft.y_pct}%`;
+  text.style.fontSize=`${draft.font_size}px`;
+  text.style.color=draft.text_color;
+  text.style.webkitTextStroke=`${draft.neon_strength>0?Math.max(.35,draft.neon_strength/85):0}px ${draft.neon_color}`;
+  text.style.textShadow=bannerNeonShadowV19(draft.neon_color,draft.neon_strength);
   text.style.fontFamily=bannerPreviewFontNameV8?`'${bannerPreviewFontNameV8}', sans-serif`:"";
+
+  clearBannerAnimationClassesV19(text);
+  const cls=bannerAnimationClassV19(draft.animation);
+  if(cls)text.classList.add(cls);
+
   const img=document.getElementById("bannerImageInput")?.files?.[0];
   const editId=document.getElementById("bannerEditId")?.value;
   const existing=eventBanners.find((b)=>b.id===editId);
+
   if(img){
     if(bannerPreviewObjectUrlV8)URL.revokeObjectURL(bannerPreviewObjectUrlV8);
     bannerPreviewObjectUrlV8=URL.createObjectURL(img);
     preview.style.backgroundImage=`url('${bannerPreviewObjectUrlV8}')`;
-  }else preview.style.backgroundImage=existing?.image_url?`url('${existing.image_url}')`:"linear-gradient(135deg,#d8fff2,#ffffff)";
+  }else{
+    preview.style.backgroundImage=existing?.image_url
+      ?`url('${existing.image_url}')`
+      :"linear-gradient(135deg,#d8fff2,#ffffff)";
+  }
 }
 
 async function loadBannerPreviewFontV8(file){
@@ -6071,26 +6215,242 @@ async function loadBannerPreviewFontV8(file){
     bannerPreviewFontUrlV8=URL.createObjectURL(file);
     bannerPreviewFontNameV8=`MintPreview_${safeUUID().replaceAll("-","")}`;
     const face=new FontFace(bannerPreviewFontNameV8,`url(${bannerPreviewFontUrlV8})`);
-    await face.load();document.fonts.add(face);updateBannerEditorPreviewV8();
-  }catch(error){console.warn("폰트 미리보기 실패",error);bannerPreviewFontNameV8="";updateBannerEditorPreviewV8();}
+    await face.load();
+    document.fonts.add(face);
+    updateBannerEditorPreviewV8();
+  }catch(error){
+    console.warn("폰트 미리보기 실패",error);
+    bannerPreviewFontNameV8="";
+    updateBannerEditorPreviewV8();
+  }
 }
 
-["bannerTextInput","bannerFontSizeInput","bannerXInput","bannerYInput","bannerColorInput"].forEach((id)=>document.getElementById(id)?.addEventListener("input",updateBannerEditorPreviewV8));
+[
+  "bannerTextInput","bannerFontSizeInput","bannerXInput","bannerYInput",
+  "bannerTextColorInput","bannerNeonColorInput","bannerNeonStrengthInput",
+  "bannerAnimationInput"
+].forEach((id)=>document.getElementById(id)?.addEventListener("input",updateBannerEditorPreviewV8));
+
+document.getElementById("bannerAnimationInput")?.addEventListener("change",updateBannerEditorPreviewV8);
 document.getElementById("bannerImageInput")?.addEventListener("change",updateBannerEditorPreviewV8);
 document.getElementById("bannerFontInput")?.addEventListener("change",(e)=>void loadBannerPreviewFontV8(e.target.files?.[0]||null));
+
 document.getElementById("bannerEditorPreview")?.addEventListener("click",(e)=>{
   const rect=e.currentTarget.getBoundingClientRect();
-  const x=Math.round(((e.clientX-rect.left)/rect.width)*100),y=Math.round(((e.clientY-rect.top)/rect.height)*100);
+  const x=Math.round(((e.clientX-rect.left)/rect.width)*100);
+  const y=Math.round(((e.clientY-rect.top)/rect.height)*100);
   document.getElementById("bannerXInput").value=Math.max(0,Math.min(100,x));
   document.getElementById("bannerYInput").value=Math.max(0,Math.min(100,y));
   updateBannerEditorPreviewV8();
 });
 
-function resetBannerFormV6(){document.getElementById("bannerForm")?.reset();document.getElementById("bannerEditId").value="";document.getElementById("bannerFontSizeInput").value=32;document.getElementById("bannerXInput").value=25;document.getElementById("bannerYInput").value=50;document.getElementById("bannerColorInput").value="#35c597";document.getElementById("bannerEnabledInput").checked=true;document.getElementById("cancelBannerEditButton")?.classList.add("hidden");setMessage("bannerFormMessage","");bannerPreviewFontNameV8="";updateBannerEditorPreviewV8();}
-function renderAdminBannerListV6(){const el=document.getElementById("adminBannerList");if(!el||!isAdmin)return;el.innerHTML=eventBanners.length?eventBanners.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map((b)=>`<div class="ops-list-row"><div class="ops-list-thumb">${b.image_url?`<img src="${escapeHTML(b.image_url)}">`:"BANNER"}</div><div class="ops-list-info"><strong>${escapeHTML(b.text||"문구 없음")}</strong><small>${b.enabled?"표시 중":"숨김"} · ${b.font_size}px · 위치 ${b.x_pct},${b.y_pct} · 순서 ${b.sort_order}</small></div><div class="ops-list-actions"><button data-banner-edit="${b.id}">수정</button><button class="danger" data-banner-delete="${b.id}">삭제</button></div></div>`).join(""):`<div class="card">등록 배너가 없어요.</div>`;el.querySelectorAll("[data-banner-edit]").forEach((button)=>button.addEventListener("click",()=>editBannerV6(button.dataset.bannerEdit)));el.querySelectorAll("[data-banner-delete]").forEach((button)=>button.addEventListener("click",()=>void deleteBannerV6(button.dataset.bannerDelete)));}
-function editBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b)return;document.getElementById("bannerEditId").value=b.id;document.getElementById("bannerTextInput").value=b.text||"";document.getElementById("bannerFontSizeInput").value=b.font_size||32;document.getElementById("bannerXInput").value=b.x_pct??25;document.getElementById("bannerYInput").value=b.y_pct??50;document.getElementById("bannerColorInput").value=b.neon_color||"#35c597";document.getElementById("bannerSortInput").value=b.sort_order||0;document.getElementById("bannerPulseInput").checked=Boolean(b.pulse);document.getElementById("bannerEnabledInput").checked=Boolean(b.enabled);document.getElementById("cancelBannerEditButton")?.classList.remove("hidden");updateBannerEditorPreviewV8();document.getElementById("bannerForm")?.scrollIntoView({behavior:"smooth",block:"center"});}
-async function deleteBannerV6(id){const b=eventBanners.find((x)=>x.id===id);if(!b||!confirm("이 배너를 삭제할까요?"))return;const{error}=await supabaseClient.from("event_banners").delete().eq("id",id);if(error)return alert(error.message);await Promise.all([deleteStorageUrlV6("banner-assets",b.image_url),deleteStorageUrlV6("banner-assets",b.font_url)]);await loadV6PublicData();renderAdminBannerListV6();}
-document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{e.preventDefault();if(!isAdmin)return;const id=document.getElementById("bannerEditId").value,existing=eventBanners.find((b)=>b.id===id);const imageFile=document.getElementById("bannerImageInput").files?.[0],fontFile=document.getElementById("bannerFontInput").files?.[0];if(imageFile&&imageFile.size>10*1024*1024)return setMessage("bannerFormMessage","이미지는 10MB 이하만 가능해요.","error");if(fontFile&&fontFile.size>10*1024*1024)return setMessage("bannerFormMessage","폰트는 10MB 이하만 가능해요.","error");try{setMessage("bannerFormMessage","업로드/저장 중...");const imageUrl=imageFile?await uploadPublicFileV6("banner-assets",imageFile,"images"):existing?.image_url||null;const fontUrl=fontFile?await uploadPublicFileV6("banner-assets",fontFile,"fonts"):existing?.font_url||null;const fontFamily=fontFile?`MintBanner_${safeUUID().replaceAll("-","")}`:existing?.font_family||null;const payload={text:document.getElementById("bannerTextInput").value.trim(),font_size:Number(document.getElementById("bannerFontSizeInput").value)||32,x_pct:Number(document.getElementById("bannerXInput").value)||0,y_pct:Number(document.getElementById("bannerYInput").value)||0,neon_color:document.getElementById("bannerColorInput").value,pulse:document.getElementById("bannerPulseInput").checked,enabled:document.getElementById("bannerEnabledInput").checked,sort_order:Math.floor(Number(document.getElementById("bannerSortInput").value)||0),image_url:imageUrl,font_url:fontUrl,font_family:fontFamily};const res=id?await supabaseClient.from("event_banners").update(payload).eq("id",id):await supabaseClient.from("event_banners").insert(payload);if(res.error)throw res.error;if(existing&&imageFile)await deleteStorageUrlV6("banner-assets",existing.image_url);if(existing&&fontFile)await deleteStorageUrlV6("banner-assets",existing.font_url);resetBannerFormV6();await loadV6PublicData();renderAdminBannerListV6();setMessage("bannerFormMessage","저장 완료!","success");}catch(error){setMessage("bannerFormMessage",error.message,"error");}});document.getElementById("resetBannerFormButton")?.addEventListener("click",resetBannerFormV6);document.getElementById("cancelBannerEditButton")?.addEventListener("click",resetBannerFormV6);
+function resetBannerFormV6(){
+  document.getElementById("bannerForm")?.reset();
+  document.getElementById("bannerEditId").value="";
+  document.getElementById("bannerFontSizeInput").value=32;
+  document.getElementById("bannerXInput").value=25;
+  document.getElementById("bannerYInput").value=50;
+  document.getElementById("bannerTextColorInput").value="#1f5142";
+  document.getElementById("bannerNeonColorInput").value="#35c597";
+  document.getElementById("bannerNeonStrengthInput").value=55;
+  document.getElementById("bannerAnimationInput").value="none";
+  document.getElementById("bannerEnabledInput").checked=true;
+  document.getElementById("cancelBannerEditButton")?.classList.add("hidden");
+  setMessage("bannerFormMessage","");
+  bannerPreviewFontNameV8="";
+  updateBannerEditorPreviewV8();
+}
+
+function renderAdminBannerListV6(){
+  const el=document.getElementById("adminBannerList");
+  if(!el||!isAdmin)return;
+
+  const list=[...eventBanners].sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  el.innerHTML=list.length?list.map((b)=>`
+    <div class="ops-list-row">
+      <div class="ops-list-thumb">${b.image_url?`<img src="${escapeHTML(b.image_url)}">`:"BANNER"}</div>
+      <div class="ops-list-info">
+        <strong>${escapeHTML(b.text||"문구 없음")}</strong>
+        <small>
+          ${b.enabled?"표시 중":"숨김"} · ${b.font_size||32}px ·
+          위치 ${b.x_pct??25},${b.y_pct??50} ·
+          애니 ${escapeHTML(b.animation|| (b.pulse?"pulse":"none"))} · 순서 ${b.sort_order||0}
+        </small>
+      </div>
+      <div class="ops-list-actions">
+        <button data-banner-edit="${b.id}">수정</button>
+        <button class="danger" data-banner-delete="${b.id}">삭제</button>
+      </div>
+    </div>`).join("")
+    :`<div class="card">등록 배너가 없어요. 위에서 새 배너를 등록해주세요.</div>`;
+
+  el.querySelectorAll("[data-banner-edit]").forEach((button)=>button.addEventListener("click",()=>editBannerV6(button.dataset.bannerEdit)));
+  el.querySelectorAll("[data-banner-delete]").forEach((button)=>button.addEventListener("click",()=>void deleteBannerV6(button.dataset.bannerDelete)));
+}
+
+function editBannerV6(id){
+  const b=eventBanners.find((x)=>x.id===id);
+  if(!b)return;
+
+  document.getElementById("bannerEditId").value=b.id;
+  document.getElementById("bannerTextInput").value=b.text||"";
+  document.getElementById("bannerFontSizeInput").value=b.font_size||32;
+  document.getElementById("bannerXInput").value=b.x_pct??25;
+  document.getElementById("bannerYInput").value=b.y_pct??50;
+  document.getElementById("bannerTextColorInput").value=b.text_color||"#1f5142";
+  document.getElementById("bannerNeonColorInput").value=b.neon_color||"#35c597";
+  document.getElementById("bannerNeonStrengthInput").value=Number(b.neon_strength??55);
+  document.getElementById("bannerAnimationInput").value=b.animation|| (b.pulse?"pulse":"none");
+  document.getElementById("bannerSortInput").value=b.sort_order||0;
+  document.getElementById("bannerEnabledInput").checked=Boolean(b.enabled);
+  document.getElementById("cancelBannerEditButton")?.classList.remove("hidden");
+
+  updateBannerEditorPreviewV8();
+  document.getElementById("bannerForm")?.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+async function deleteBannerV6(id){
+  const b=eventBanners.find((x)=>x.id===id);
+  if(!b||!confirm("이 배너를 삭제할까요?"))return;
+
+  const {error}=await supabaseClient.from("event_banners").delete().eq("id",id);
+  if(error){
+    setMessage("bannerFormMessage",`삭제 실패: ${error.message}`,"error");
+    return;
+  }
+
+  await Promise.all([
+    deleteStorageUrlV6("banner-assets",b.image_url),
+    deleteStorageUrlV6("banner-assets",b.font_url)
+  ]);
+
+  await loadV6PublicData();
+  renderAdminBannerListV6();
+  renderV6HomeBanners();
+  setMessage("bannerFormMessage","배너를 삭제했어요.","success");
+}
+
+document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{
+  e.preventDefault();
+
+  if(!isAdmin){
+    setMessage("bannerFormMessage","관리자 권한을 확인할 수 없어요. 다시 로그인해주세요.","error");
+    return;
+  }
+  if(!supabaseClient){
+    setMessage("bannerFormMessage","Supabase 연결이 아직 준비되지 않았어요.","error");
+    return;
+  }
+
+  const submitButton=e.currentTarget.querySelector('button[type="submit"]');
+  const id=document.getElementById("bannerEditId").value;
+  const existing=eventBanners.find((b)=>b.id===id);
+  const imageFile=document.getElementById("bannerImageInput").files?.[0];
+  const fontFile=document.getElementById("bannerFontInput").files?.[0];
+
+  if(!document.getElementById("bannerTextInput").value.trim() && !imageFile && !existing?.image_url){
+    setMessage("bannerFormMessage","배너 문구나 배너 이미지 중 하나는 넣어주세요.","error");
+    return;
+  }
+  if(imageFile&&imageFile.size>10*1024*1024){
+    setMessage("bannerFormMessage","이미지는 10MB 이하만 가능해요.","error");
+    return;
+  }
+  if(fontFile&&fontFile.size>10*1024*1024){
+    setMessage("bannerFormMessage","폰트는 10MB 이하만 가능해요.","error");
+    return;
+  }
+
+  let uploadedImageUrl=null;
+  let uploadedFontUrl=null;
+
+  try{
+    if(submitButton){
+      submitButton.disabled=true;
+      submitButton.textContent="저장 중...";
+    }
+    setMessage("bannerFormMessage","배너를 서버에 저장하고 있어요...");
+
+    if(imageFile){
+      setMessage("bannerFormMessage","배너 이미지 업로드 중...");
+      uploadedImageUrl=await uploadPublicFileV6("banner-assets",imageFile,"images");
+    }
+    if(fontFile){
+      setMessage("bannerFormMessage","폰트 업로드 중...");
+      uploadedFontUrl=await uploadPublicFileV6("banner-assets",fontFile,"fonts");
+    }
+
+    const draft=bannerDraftV19();
+    const fontFamily=fontFile
+      ?`MintBanner_${safeUUID().replaceAll("-","")}`
+      :existing?.font_family||null;
+
+    const payload={
+      text:document.getElementById("bannerTextInput").value.trim(),
+      font_size:draft.font_size,
+      x_pct:draft.x_pct,
+      y_pct:draft.y_pct,
+      text_color:draft.text_color,
+      neon_color:draft.neon_color,
+      neon_strength:draft.neon_strength,
+      animation:draft.animation,
+      // 구버전 DB 호환: pulse 컬럼도 함께 유지
+      pulse:draft.animation==="pulse",
+      enabled:document.getElementById("bannerEnabledInput").checked,
+      sort_order:Math.floor(Number(document.getElementById("bannerSortInput").value)||0),
+      image_url:uploadedImageUrl||existing?.image_url||null,
+      font_url:uploadedFontUrl||existing?.font_url||null,
+      font_family:fontFamily
+    };
+
+    const query=id
+      ?supabaseClient.from("event_banners").update(payload).eq("id",id).select("*")
+      :supabaseClient.from("event_banners").insert(payload).select("*");
+
+    const {data,error}=await query;
+    if(error)throw error;
+    if(!Array.isArray(data)||data.length===0){
+      throw new Error("서버에서 저장 결과를 돌려주지 않았어요. RLS/관리자 정책을 확인해주세요.");
+    }
+
+    if(existing&&uploadedImageUrl&&existing.image_url){
+      await deleteStorageUrlV6("banner-assets",existing.image_url);
+    }
+    if(existing&&uploadedFontUrl&&existing.font_url){
+      await deleteStorageUrlV6("banner-assets",existing.font_url);
+    }
+
+    await loadV6PublicData();
+    renderAdminBannerListV6();
+    renderV6HomeBanners();
+
+    const savedText=payload.text||"이미지 배너";
+    resetBannerFormV6();
+    setMessage("bannerFormMessage",`저장 완료! "${savedText}" 배너가 홈에 반영됐어요.`,"success");
+  }catch(error){
+    console.error("배너 저장 실패",error);
+
+    // DB 저장 실패 시 이번에 새로 올린 파일만 정리
+    if(uploadedImageUrl)await deleteStorageUrlV6("banner-assets",uploadedImageUrl);
+    if(uploadedFontUrl)await deleteStorageUrlV6("banner-assets",uploadedFontUrl);
+
+    const raw=String(error?.message||error||"알 수 없는 오류");
+    const hint=
+      raw.includes("column") ? "setup_v19.sql을 먼저 실행했는지 확인해주세요." :
+      raw.includes("row-level security")||raw.includes("policy") ? "배너 관리자 RLS 정책이 없어요. setup_v19.sql을 실행해주세요." :
+      raw.includes("Bucket")||raw.includes("bucket") ? "banner-assets Storage 버킷이 없어요. setup_v19.sql을 실행해주세요." :
+      "";
+    setMessage("bannerFormMessage",`배너 저장 실패: ${raw}${hint?` · ${hint}`:""}`,"error");
+  }finally{
+    if(submitButton){
+      submitButton.disabled=false;
+      submitButton.textContent="배너 저장";
+    }
+  }
+});
+
+document.getElementById("resetBannerFormButton")?.addEventListener("click",resetBannerFormV6);
+document.getElementById("cancelBannerEditButton")?.addEventListener("click",resetBannerFormV6);
 
 /* =========================================================
    V6 리듬 음원 자동 분석 / 관리자

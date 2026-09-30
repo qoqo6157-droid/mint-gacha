@@ -5224,3 +5224,206 @@ body.gacha-cinematic-open {
     animation-duration: .01ms !important;
   }
 }
+
+
+/* =========================================================
+   V19 - 홈 배너 등록/네온/텍스트 애니메이션 전면 수정
+========================================================= */
+
+.banner-color-field > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.banner-color-field input[type="color"] {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid #d9eee7;
+  border-radius: 9px;
+  background: white;
+  cursor: pointer;
+}
+
+.banner-color-field code {
+  min-width: 78px;
+  padding: 7px 9px;
+  border: 1px solid #e1eee9;
+  border-radius: 8px;
+  background: #f8fcfa;
+  color: #5d786f;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.banner-range-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.banner-range-row input[type="range"] {
+  width: 100%;
+  accent-color: #36c59a;
+}
+
+.banner-range-row strong {
+  color: #4f776b;
+  font-size: 9px;
+  text-align: right;
+}
+
+#bannerAnimationInput {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #d8ebe5;
+  border-radius: 9px;
+  background: white;
+  color: #405e55;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.banner-save-help {
+  margin: 8px 0 0;
+  color: #849991;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+/* 네온이 확실히 보이도록 배너 텍스트 자체를 독립 레이어로 */
+.event-banner.custom-banner #homeBannerTitle,
+.banner-editor-preview-text {
+  paint-order: stroke fill;
+  will-change: transform, filter, opacity, background-position;
+}
+
+/* 미리보기의 텍스트 변형 기준 */
+.banner-editor-preview-text {
+  transform: translate(-50%,-50%);
+  transform-origin: 50% 50%;
+}
+
+/* 실제 배너는 부모 위치 transform을 건드리지 않도록 title 자체에 animation */
+@keyframes bannerV19Pulse {
+  0%,100% { transform: scale(.94); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes bannerV19Float {
+  0%,100% { transform: translateY(-6px); }
+  50% { transform: translateY(7px); }
+}
+
+@keyframes bannerV19Bounce {
+  0%,100% { transform: translateY(0) scale(1); }
+  18% { transform: translateY(-10px) scale(1.035,.97); }
+  38% { transform: translateY(2px) scale(.985,1.02); }
+  58% { transform: translateY(-4px) scale(1.015,.99); }
+}
+
+@keyframes bannerV19Sway {
+  0%,100% { transform: rotate(-2.2deg) translateX(-4px); }
+  50% { transform: rotate(2.2deg) translateX(4px); }
+}
+
+@keyframes bannerV19NeonFlicker {
+  0%,18%,22%,25%,53%,57%,100% { opacity: 1; filter: brightness(1.18); }
+  20%,24%,55% { opacity: .58; filter: brightness(.7); }
+}
+
+@keyframes bannerV19Heartbeat {
+  0%,100% { transform: scale(1); }
+  12% { transform: scale(1.08); }
+  24% { transform: scale(.98); }
+  36% { transform: scale(1.055); }
+  50% { transform: scale(1); }
+}
+
+@keyframes bannerV19Shimmer {
+  0% { background-position: -160% 0; }
+  100% { background-position: 160% 0; }
+}
+
+/* 실제/미리보기 공통 애니메이션 */
+.banner-anim-pulse {
+  animation: bannerV19Pulse 1.35s ease-in-out infinite;
+}
+
+.banner-anim-float {
+  animation: bannerV19Float 2.1s ease-in-out infinite;
+}
+
+.banner-anim-bounce {
+  animation: bannerV19Bounce 1.6s cubic-bezier(.2,.75,.25,1) infinite;
+}
+
+.banner-anim-sway {
+  animation: bannerV19Sway 2s ease-in-out infinite;
+}
+
+.banner-anim-neon-flicker {
+  animation: bannerV19NeonFlicker 2.8s linear infinite;
+}
+
+.banner-anim-heartbeat {
+  animation: bannerV19Heartbeat 1.5s ease-in-out infinite;
+}
+
+/* Shimmer는 텍스트 색을 완전히 덮지 않고 흰 광택만 스쳐감 */
+.banner-anim-shimmer {
+  position: relative;
+  overflow: visible;
+}
+
+.banner-anim-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: -8% -12%;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 24%,
+    rgba(255,255,255,0) 34%,
+    rgba(255,255,255,.88) 48%,
+    rgba(255,255,255,0) 62%,
+    transparent 72%
+  );
+  transform: translateX(-160%) skewX(-16deg);
+  animation: bannerShimmerSweepV19 2.1s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes bannerShimmerSweepV19 {
+  0%,18% { transform: translateX(-165%) skewX(-16deg); opacity: 0; }
+  35% { opacity: .85; }
+  72%,100% { transform: translateX(165%) skewX(-16deg); opacity: 0; }
+}
+
+/* 구버전 pulse 클래스가 남아도 중복 적용 방지 */
+.event-banner-text.banner-pulse {
+  animation: none !important;
+}
+
+/* 홈에 등록 배너가 없을 때 섹션은 JS에서 숨김 */
+.event-banner.custom-banner {
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-anim-pulse,
+  .banner-anim-float,
+  .banner-anim-bounce,
+  .banner-anim-sway,
+  .banner-anim-shimmer,
+  .banner-anim-neon-flicker,
+  .banner-anim-heartbeat,
+  .banner-anim-shimmer::after {
+    animation-duration: .01ms !important;
+  }
+}

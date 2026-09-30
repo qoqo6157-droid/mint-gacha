@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
   <header>
@@ -1067,9 +1067,40 @@
               <label><span>글자 크기</span><input id="bannerFontSizeInput" type="number" min="16" max="80" value="32"></label>
               <label><span>텍스트 X 위치 (%)</span><input id="bannerXInput" type="number" min="0" max="100" value="25"></label>
               <label><span>텍스트 Y 위치 (%)</span><input id="bannerYInput" type="number" min="0" max="100" value="50"></label>
-              <label><span>네온 색상</span><input id="bannerColorInput" type="color" value="#35c597"></label>
+
+              <label class="banner-color-field">
+                <span>글자색</span>
+                <div><input id="bannerTextColorInput" type="color" value="#1f5142"><code id="bannerTextColorCode">#1f5142</code></div>
+              </label>
+
+              <label class="banner-color-field">
+                <span>테두리 / 네온색</span>
+                <div><input id="bannerNeonColorInput" type="color" value="#35c597"><code id="bannerNeonColorCode">#35c597</code></div>
+              </label>
+
+              <label>
+                <span>네온 강도</span>
+                <div class="banner-range-row">
+                  <input id="bannerNeonStrengthInput" type="range" min="0" max="100" step="5" value="55">
+                  <strong id="bannerNeonStrengthValue">55%</strong>
+                </div>
+              </label>
+
+              <label>
+                <span>글자 애니메이션</span>
+                <select id="bannerAnimationInput">
+                  <option value="none">없음</option>
+                  <option value="pulse">펄스 · 커졌다 작아졌다</option>
+                  <option value="float">둥실둥실</option>
+                  <option value="bounce">통통 바운스</option>
+                  <option value="sway">좌우 살랑</option>
+                  <option value="shimmer">빛이 스쳐감</option>
+                  <option value="neon-flicker">네온 깜빡임</option>
+                  <option value="heartbeat">두근두근</option>
+                </select>
+              </label>
+
               <label><span>표시 순서</span><input id="bannerSortInput" type="number" min="0" value="0"></label>
-              <label class="checkbox-field"><input id="bannerPulseInput" type="checkbox"><span>펄스 효과</span></label>
               <label class="checkbox-field"><input id="bannerEnabledInput" type="checkbox" checked><span>홈에 표시</span></label>
             </div>
             <div class="upload-grid">
@@ -1078,13 +1109,14 @@
             </div>
             <div class="banner-editor-preview" id="bannerEditorPreview" title="원하는 위치를 클릭하면 문구 위치가 이동해요.">
               <div class="banner-editor-preview-text" id="bannerEditorPreviewText">이벤트 문구</div>
-              <small>미리보기 클릭으로 X/Y 위치 이동</small>
+              <small>미리보기를 클릭하면 글자 위치가 이동해요 · 색상/네온/애니메이션도 실시간 반영</small>
             </div>
             <div class="admin-form-actions">
               <button class="mint-button" type="submit">배너 저장</button>
               <button class="white-button hidden" id="cancelBannerEditButton" type="button">수정 취소</button>
             </div>
             <p class="admin-form-message" id="bannerFormMessage"></p>
+            <p class="banner-save-help">※ v19부터 배너는 관리자 등록분만 표시돼요. 등록된 배너가 0개면 홈의 이벤트 영역 자체가 숨겨집니다.</p>
           </form>
           <div class="ops-list" id="adminBannerList"></div>
         </section>
@@ -1365,6 +1397,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=18"></script>
+  <script src="script.js?v=19"></script>
 </body>
 </html>
