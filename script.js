@@ -3,6 +3,7 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_nHK7pXiqP5a3_GrMRw17qw_L0zdL70n
 
 const SAVE_KEY = "mintGachaSave_v1";
 const LOCAL_BACKUP_KEY = "mintGachaLocalBackupBeforeCloud_v1";
+const LOCAL_SYNC_META_KEY = "mintGachaSyncMeta_v27";
 const RHYTHM_SPEED_KEY = "mintRhythmFallSpeed_v1";
 const RHYTHM_OFFSET_KEY = "mintRhythmTimingOffset_v1";
 const GLOBAL_GRANT_BROWSER_KEY = "mintGlobalPointGrantLastId_v1";
@@ -51,6 +52,7 @@ let linkedUserId = null;
 let cloudSaveTimer = null;
 let safeSaveInterval = null;
 let cloudBusy = false;
+let cloudWriteQueue = Promise.resolve(false);
 let authMode = "login";
 
 let characters = [];
@@ -131,9 +133,82 @@ function loadSave() {
   }
 }
 
-function saveLocalOnly() {
+function readSyncMetaV27() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SYNC_META_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      userId: typeof parsed.userId === "string" ? parsed.userId : null,
+      localRevision: Math.max(0, Math.floor(Number(parsed.localRevision) || 0)),
+      cloudSyncedRevision: Math.max(0, Math.floor(Number(parsed.cloudSyncedRevision) || 0)),
+      localUpdatedAt: Math.max(0, Math.floor(Number(parsed.localUpdatedAt) || 0)),
+      cloudSyncedAt: Math.max(0, Math.floor(Number(parsed.cloudSyncedAt) || 0))
+    };
+  } catch (error) {
+    console.warn("세이브 동기화 메타 불러오기 실패:", error);
+    return { userId: null, localRevision: 0, cloudSyncedRevision: 0, localUpdatedAt: 0, cloudSyncedAt: 0 };
+  }
+}
+
+function writeSyncMetaV27(meta) {
+  try {
+    localStorage.setItem(LOCAL_SYNC_META_KEY, JSON.stringify(meta));
+  } catch (error) {
+    console.warn("세이브 동기화 메타 저장 실패:", error);
+  }
+}
+
+function markLocalDirtyV27() {
+  const meta = readSyncMetaV27();
+  const userId = currentUser?.id || linkedUserId || meta.userId || null;
+  const next = {
+    ...meta,
+    userId,
+    localRevision: Math.max(meta.localRevision, meta.cloudSyncedRevision) + 1,
+    localUpdatedAt: Date.now()
+  };
+  writeSyncMetaV27(next);
+  return next.localRevision;
+}
+
+function markCloudSyncedV27(userId, revision) {
+  const meta = readSyncMetaV27();
+  const safeRevision = Math.max(0, Math.floor(Number(revision) || 0));
+  writeSyncMetaV27({
+    ...meta,
+    userId: userId || meta.userId || null,
+    localRevision: Math.max(meta.localRevision, safeRevision),
+    cloudSyncedRevision: Math.max(meta.cloudSyncedRevision, safeRevision),
+    cloudSyncedAt: Date.now()
+  });
+}
+
+function markCloudBaselineV27(userId) {
+  const meta = readSyncMetaV27();
+  const baseline = Math.max(meta.localRevision, meta.cloudSyncedRevision);
+  writeSyncMetaV27({
+    ...meta,
+    userId,
+    localRevision: baseline,
+    cloudSyncedRevision: baseline,
+    localUpdatedAt: Date.now(),
+    cloudSyncedAt: Date.now()
+  });
+}
+
+function hasUnsyncedLocalV27(userId) {
+  const meta = readSyncMetaV27();
+  return Boolean(
+    userId &&
+    meta.userId === userId &&
+    meta.localRevision > meta.cloudSyncedRevision
+  );
+}
+
+function saveLocalOnly(markDirty = false) {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+    if (markDirty) markLocalDirtyV27();
     return true;
   } catch (error) {
     console.error("로컬 세이브 저장 실패:", error);
@@ -142,7 +217,7 @@ function saveLocalOnly() {
 }
 
 function saveGame() {
-  saveLocalOnly();
+  saveLocalOnly(true);
   scheduleCloudSave();
 }
 
@@ -534,6 +609,54 @@ function createLocalBackupBeforeCloud(userId) {
   }
 }
 
+function readCloudBackupV27() {
+  try {
+    const raw = localStorage.getItem(LOCAL_BACKUP_KEY);
+    if (!raw) return null;
+    const backup = JSON.parse(raw);
+    if (!backup || typeof backup !== "object" || !backup.saveData) return null;
+    return backup;
+  } catch (error) {
+    console.warn("이전 로컬 백업 읽기 실패:", error);
+    return null;
+  }
+}
+
+function totalOwnedCardsV27(data) {
+  return Object.values(data?.characters || {}).reduce((sum, value) => {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    return Number.isSafeInteger(sum + n) ? sum + n : sum;
+  }, 0);
+}
+
+function likelyUnsyncedGachaBackupV27(userId, cloudSave) {
+  // v27 이전 버그로 "뽑은 직후 새로고침 → 오래된 클라우드가 로컬을 덮음"이 발생했을 때
+  // loadOrCreateCloudSave가 남겨 둔 직전 로컬 백업을 보수적인 조건에서만 자동 복구한다.
+  const backup = readCloudBackupV27();
+  if (!backup || backup.userId !== userId || !backup.saveData || !cloudSave) return null;
+
+  const backedUpAt = Date.parse(backup.backedUpAt || "");
+  if (!Number.isFinite(backedUpAt) || Date.now() - backedUpAt > 48 * 60 * 60 * 1000) return null;
+
+  const local = mergeSave(DEFAULT_SAVE, backup.saveData);
+  const cloud = mergeSave(DEFAULT_SAVE, cloudSave);
+
+  const cardDelta = totalOwnedCardsV27(local) - totalOwnedCardsV27(cloud);
+  const normalPityDelta = Math.max(0, Number(local.normalPity || 0) - Number(cloud.normalPity || 0));
+  const limitedPityDelta = Math.max(0, Number(local.limitedPity || 0) - Number(cloud.limitedPity || 0));
+  const drawDelta = normalPityDelta + limitedPityDelta;
+  const pointCostDelta = Number(cloud.points || 0) - Number(local.points || 0);
+
+  // 카드 증가 수 = 천장 포인트 증가 수 = 소비 포인트/100 이 정확히 맞을 때만
+  // "클라우드에 전송되지 않은 가챠"로 판정한다.
+  const strongMatch =
+    cardDelta > 0 &&
+    drawDelta === cardDelta &&
+    pointCostDelta === cardDelta * 100;
+
+  return strongMatch ? local : null;
+}
+
 async function loadOrCreateCloudSave(user) {
   if (!supabaseClient || !user || cloudBusy) return;
   cloudBusy = true;
@@ -551,20 +674,56 @@ async function loadOrCreateCloudSave(user) {
     if (error) throw error;
 
     if (data?.save_data) {
-      createLocalBackupBeforeCloud(user.id);
-      saveData = mergeSave(DEFAULT_SAVE, data.save_data);
-      saveLocalOnly();
-      recoverPendingGacha();
-      cloudReady = true;
-      renderEverything();
-      setCloudUi("connected", "클라우드 불러오기 완료", "기존 서버 세이브를 이 브라우저에 적용했어요.");
+      const localWasDirty = hasUnsyncedLocalV27(user.id);
+      const legacyGachaBackup = !localWasDirty
+        ? likelyUnsyncedGachaBackupV27(user.id, data.save_data)
+        : null;
+
+      if (localWasDirty) {
+        // 새로고침 직전 로컬에 저장됐지만 아직 서버로 전송되지 않은 변경이 있으면
+        // 절대 오래된 서버 세이브로 덮어쓰지 않는다.
+        recoverPendingGacha();
+        cloudReady = true;
+        renderEverything();
+        setCloudUi("saving", "로컬 변경 복구 중", "새로고침 직전 저장된 데이터를 서버에 다시 올리고 있어요.");
+        await saveCloudNow("미전송 로컬 세이브 복구");
+      } else if (legacyGachaBackup) {
+        // v27 적용 전에 실제로 사라졌던 가챠가 직전 백업에 남아 있고,
+        // 카드/천장/포인트 변화가 정확히 일치하는 경우에만 자동 복구.
+        saveData = legacyGachaBackup;
+        recoverPendingGacha();
+        saveLocalOnly(true);
+        cloudReady = true;
+        renderEverything();
+        setCloudUi("saving", "가챠 백업 복구 중", "이전 새로고침에서 사라진 가챠 기록을 복구하고 있어요.");
+        await saveCloudNow("이전 가챠 백업 자동 복구");
+      } else {
+        createLocalBackupBeforeCloud(user.id);
+        saveData = mergeSave(DEFAULT_SAVE, data.save_data);
+        saveLocalOnly(false);
+        recoverPendingGacha();
+        markCloudBaselineV27(user.id);
+        cloudReady = true;
+        renderEverything();
+        setCloudUi("connected", "클라우드 불러오기 완료", "서버 세이브를 이 브라우저에 적용했어요.");
+
+        // 서버 세이브 안에 미완료 가챠가 있어 recoverPendingGacha가 내용을 바꿨다면 바로 반영.
+        if (hasUnsyncedLocalV27(user.id)) {
+          await saveCloudNow("가챠 복구 상태 동기화");
+        }
+      }
     } else {
+      // 이 계정의 첫 서버 세이브
+      const snapshot = deepClone(saveData);
       const { error: insertError } = await supabaseClient.from("user_saves").insert({
         user_id: user.id,
-        save_data: deepClone(saveData)
+        save_data: snapshot
       });
       if (insertError) throw insertError;
+
       cloudReady = true;
+      const revision = readSyncMetaV27().localRevision;
+      markCloudSyncedV27(user.id, revision);
       setCloudUi("connected", "첫 클라우드 저장 완료", "현재 브라우저 세이브를 계정의 첫 서버 세이브로 올렸어요.");
     }
 
@@ -589,21 +748,45 @@ function scheduleCloudSave() {
   }, 900);
 }
 
-async function saveCloudNow(reason = "클라우드 저장") {
+function saveCloudNow(reason = "클라우드 저장") {
+  cloudWriteQueue = cloudWriteQueue
+    .catch(() => false)
+    .then(() => saveCloudNowInternalV27(reason));
+  return cloudWriteQueue;
+}
+
+async function saveCloudNowInternalV27(reason = "클라우드 저장") {
   if (!currentUser || !cloudReady || !supabaseClient || linkedUserId !== currentUser.id) return false;
-  saveLocalOnly();
+
+  // 로컬 파일은 이미 saveGame에서 즉시 기록됨.
+  // 업로드 시작 시점의 데이터/리비전을 스냅샷으로 고정해 오래된 요청이 새 요청을 덮는 것을 방지한다.
+  saveLocalOnly(false);
+  const userId = currentUser.id;
+  const revision = readSyncMetaV27().localRevision;
+  const snapshot = deepClone(saveData);
+
   setCloudUi("saving", "저장 중...", `${reason}을 진행하고 있어요.`);
+
   try {
     const { error } = await supabaseClient.from("user_saves").upsert({
-      user_id: currentUser.id,
-      save_data: deepClone(saveData)
+      user_id: userId,
+      save_data: snapshot
     }, { onConflict: "user_id" });
     if (error) throw error;
-    setCloudUi("connected", "자동 저장됨", `마지막 저장 ${new Date().toLocaleTimeString("ko-KR")}`);
+
+    markCloudSyncedV27(userId, revision);
+
+    const stillDirty = hasUnsyncedLocalV27(userId);
+    if (stillDirty) {
+      setCloudUi("saving", "추가 변경 저장 중...", "저장 중 새 변경이 생겨 한 번 더 동기화해요.");
+      scheduleCloudSave();
+    } else {
+      setCloudUi("connected", "자동 저장됨", `마지막 저장 ${new Date().toLocaleTimeString("ko-KR")}`);
+    }
     return true;
   } catch (error) {
     console.error("클라우드 저장 실패:", error);
-    setCloudUi("error", "클라우드 저장 실패", "로컬에는 저장됐어요.");
+    setCloudUi("error", "클라우드 저장 실패", "로컬에는 안전하게 저장돼 있어요. 다음 접속 때 자동 복구합니다.");
     return false;
   }
 }
@@ -891,7 +1074,7 @@ function recoverPendingGacha() {
     if (pending.type === "limited") saveData.limitedPity = Math.max(0, saveData.limitedPity - (Number(pending.count) || 0));
   }
   saveData.pendingGacha = null;
-  saveLocalOnly();
+  saveLocalOnly(true);
 }
 
 function performGacha(type, count) {
@@ -912,7 +1095,7 @@ function performGacha(type, count) {
   saveData.points -= cost;
   if (limited) saveData.limitedPity += count;
   else saveData.normalPity += count;
-  saveLocalOnly();
+  saveLocalOnly(true);
 
   const results = [];
   for (let i = 0; i < count; i++) {
@@ -926,6 +1109,9 @@ function performGacha(type, count) {
   saveData.pendingGacha.status = "applied";
   saveData.pendingGacha.results = results;
   saveGame();
+
+  // 가챠는 재화/카드가 동시에 바뀌는 핵심 트랜잭션이라 900ms 지연 저장을 기다리지 않고 즉시 서버 저장도 요청.
+  if (currentUser && cloudReady) void saveCloudNow("가챠 결과 즉시 저장");
 
   updatePointDisplays();
   renderCollection();
@@ -1153,6 +1339,7 @@ function finishGachaSequence(skipped = false) {
 
   saveData.pendingGacha = null;
   saveGame();
+  if (currentUser && cloudReady) void saveCloudNow("가챠 완료 상태 즉시 저장");
   renderGacha();
   renderCollection();
   showGachaResults(type, results);
@@ -2447,7 +2634,7 @@ function renderV5GameHub() {
   const pangSelect = document.getElementById("pangCharacterSelect");
   if (pangSelect && pangSelect.value && pangSelect.value !== saveData.gameRecords.characterPang?.equippedSSR) {
     saveData.gameRecords.characterPang.equippedSSR = pangSelect.value;
-    saveLocalOnly();
+    saveLocalOnly(true);
   }
 
   renderMatchingStatus();
@@ -4476,7 +4663,7 @@ function applyPetTime(){
     else if(p.sick)p.deathReason="질병";
     else p.deathReason="장기 방치";
   }
-  p.lastUpdate=now;saveLocalOnly();
+  p.lastUpdate=now;saveLocalOnly(false);
 }
 
 function petCooldownRemaining(action){
@@ -6224,7 +6411,7 @@ async function v6CheckAccountAndActions(){
     const actionRes=await supabaseClient.rpc("claim_admin_actions");if(actionRes.error)throw actionRes.error;
     const actions=Array.isArray(actionRes.data)?actionRes.data:[];if(!actions.length)return;
     for(const action of actions){const p=action.payload||{};if(action.action_type==="point_delta"){const amount=Math.floor(Number(p.amount)||0);const next=saveData.points+amount;if(Number.isSafeInteger(next)&&next>=0)saveData.points=next;}else if(action.action_type==="point_set"){const amount=Math.floor(Number(p.amount)||0);if(Number.isSafeInteger(amount)&&amount>=0)saveData.points=amount;}else if(action.action_type==="character_grant"){const id=String(p.character_id||"");const qty=Math.max(1,Math.min(100,Math.floor(Number(p.quantity)||1)));if(id&&characters.some((c)=>c.id===id))saveData.characters[id]=getOwnedCount(id)+qty;}else if(action.action_type==="save_reset"){saveData=deepClone(DEFAULT_SAVE);}}
-    saveLocalOnly();renderEverything();await saveCloudNow("관리자 지급/변경 반영");
+    saveLocalOnly(true);renderEverything();await saveCloudNow("관리자 지급/변경 반영");
   }catch(error){console.warn("관리자 작업 확인 실패",error);}
 }
 window.addEventListener("focus",()=>{void v6CheckAccountAndActions();});
