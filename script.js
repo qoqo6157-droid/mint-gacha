@@ -4,6 +4,7 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_nHK7pXiqP5a3_GrMRw17qw_L0zdL70n
 const SAVE_KEY = "mintGachaSave_v1";
 const LOCAL_BACKUP_KEY = "mintGachaLocalBackupBeforeCloud_v1";
 const LOCAL_SYNC_META_KEY = "mintGachaSyncMeta_v27";
+const HOME_SELECTION_BACKUP_KEY = "mintGachaHomeSelection_v29";
 const RHYTHM_SPEED_KEY = "mintRhythmFallSpeed_v1";
 const RHYTHM_OFFSET_KEY = "mintRhythmTimingOffset_v1";
 const GLOBAL_GRANT_BROWSER_KEY = "mintGlobalPointGrantLastId_v1";
@@ -683,6 +684,7 @@ async function loadOrCreateCloudSave(user) {
         // 새로고침 직전 로컬에 저장됐지만 아직 서버로 전송되지 않은 변경이 있으면
         // 절대 오래된 서버 세이브로 덮어쓰지 않는다.
         recoverPendingGacha();
+        backupHomeSelectionV29();
         cloudReady = true;
         renderEverything();
         setCloudUi("saving", "로컬 변경 복구 중", "새로고침 직전 저장된 데이터를 서버에 다시 올리고 있어요.");
@@ -692,6 +694,7 @@ async function loadOrCreateCloudSave(user) {
         // 카드/천장/포인트 변화가 정확히 일치하는 경우에만 자동 복구.
         saveData = legacyGachaBackup;
         recoverPendingGacha();
+        backupHomeSelectionV29();
         saveLocalOnly(true);
         cloudReady = true;
         renderEverything();
@@ -702,6 +705,7 @@ async function loadOrCreateCloudSave(user) {
         saveData = mergeSave(DEFAULT_SAVE, data.save_data);
         saveLocalOnly(false);
         recoverPendingGacha();
+        backupHomeSelectionV29();
         markCloudBaselineV27(user.id);
         cloudReady = true;
         renderEverything();
@@ -714,6 +718,7 @@ async function loadOrCreateCloudSave(user) {
       }
     } else {
       // 이 계정의 첫 서버 세이브
+      backupHomeSelectionV29();
       const snapshot = deepClone(saveData);
       const { error: insertError } = await supabaseClient.from("user_saves").insert({
         user_id: user.id,
@@ -1886,6 +1891,7 @@ function limitBreakCharacter(id) {
   saveData.characters[id] = getOwnedCount(id) - 1;
   saveData.ssrLimitBreak[id] = level + 1;
   if (level + 1 === 3 && char.full_image_url) saveData.homeIllustrationMode[id] = "full";
+  backupHomeSelectionV29();
   saveGame();
   renderCollection();
   renderHomeCharacter();
@@ -1960,6 +1966,65 @@ document.getElementById("limitBreakModal")?.addEventListener("click", (event) =>
   if (event.target.id === "limitBreakModal") closeLimitBreakModal();
 });
 
+function readHomeSelectionBackupV29() {
+  try {
+    const raw = localStorage.getItem(HOME_SELECTION_BACKUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.homeCharacters)) return null;
+    return {
+      homeCharacters: parsed.homeCharacters.filter((id) => typeof id === "string").slice(0, 3),
+      homeIllustrationMode: parsed.homeIllustrationMode && typeof parsed.homeIllustrationMode === "object"
+        ? parsed.homeIllustrationMode
+        : {},
+      savedAt: Math.max(0, Number(parsed.savedAt) || 0)
+    };
+  } catch (error) {
+    console.warn("홈 설정 백업 불러오기 실패:", error);
+    return null;
+  }
+}
+
+function backupHomeSelectionV29() {
+  try {
+    localStorage.setItem(HOME_SELECTION_BACKUP_KEY, JSON.stringify({
+      homeCharacters: Array.isArray(saveData.homeCharacters) ? saveData.homeCharacters.slice(0, 3) : [],
+      homeIllustrationMode: deepClone(saveData.homeIllustrationMode || {}),
+      savedAt: Date.now()
+    }));
+  } catch (error) {
+    console.warn("홈 설정 백업 저장 실패:", error);
+  }
+}
+
+function restoreHomeSelectionBackupV29() {
+  const backup = readHomeSelectionBackupV29();
+  if (!backup || !backup.homeCharacters.length) return false;
+
+  const current = Array.isArray(saveData.homeCharacters) ? saveData.homeCharacters : [];
+  if (current.length) return false;
+
+  const restored = backup.homeCharacters
+    .filter((id) => getOwnedCount(id) > 0)
+    .slice(0, 3);
+
+  if (!restored.length) return false;
+
+  saveData.homeCharacters = restored;
+  saveData.homeIllustrationMode = {
+    ...(saveData.homeIllustrationMode || {}),
+    ...(backup.homeIllustrationMode || {})
+  };
+  saveLocalOnly(true);
+  return true;
+}
+
+function persistHomeSettingsV29(reason = "홈 캐릭터 설정") {
+  backupHomeSelectionV29();
+  saveGame();
+  if (currentUser && cloudReady) void saveCloudNow(`${reason} 즉시 저장`);
+}
+
 function quickToggleHome(id) {
   if (!getOwnedCount(id)) return;
   const list = [...saveData.homeCharacters];
@@ -1968,7 +2033,7 @@ function quickToggleHome(id) {
     if (list.length >= 3) return alert("홈 캐릭터는 최대 3명까지 설정할 수 있어요.");
     saveData.homeCharacters = [...list, id];
   }
-  saveGame();
+  persistHomeSettingsV29("도감 홈 후보 설정");
   renderCollection();
   renderHomeCharacter();
   if (collectionDetailCharacterId === id) renderCollectionDetail();
@@ -1978,8 +2043,16 @@ function quickToggleHome(id) {
    홈 캐릭터
 ========================================================= */
 function validHomeCharacters() {
-  saveData.homeCharacters = (saveData.homeCharacters || []).filter((id) => getOwnedCount(id) > 0 && characters.some((c) => c.id === id)).slice(0, 3);
-  return saveData.homeCharacters.map((id) => characters.find((c) => c.id === id)).filter(Boolean);
+  // 렌더링 중 저장값을 절대 수정하지 않는다.
+  // 새로고침 직후 캐릭터 DB가 아직 비어 있을 때 기존 선택이 삭제되던 버그를 방지.
+  const ids = (Array.isArray(saveData.homeCharacters) ? saveData.homeCharacters : []).slice(0, 3);
+
+  if (!publicDataLoaded) return [];
+
+  return ids
+    .filter((id) => getOwnedCount(id) > 0)
+    .map((id) => characters.find((c) => c.id === id))
+    .filter(Boolean);
 }
 
 function renderHomeCharacter() {
@@ -2000,9 +2073,15 @@ function renderHomeCharacter() {
   if (!list.length) {
     image.innerHTML = "<span>캐릭터 이미지</span>";
     rarity.textContent = "SSR";
-    name.textContent = "아직 홈 캐릭터가 없어요";
-    help.textContent = "도감에서 획득한 캐릭터를 최대 3명까지 홈 캐릭터로 설정할 수 있어요.";
-    dialogue.textContent = "“캐릭터를 터치하면 대사가 표시됩니다.”";
+
+    const waitingForCharacters = !publicDataLoaded && Array.isArray(saveData.homeCharacters) && saveData.homeCharacters.length > 0;
+    name.textContent = waitingForCharacters ? "홈 캐릭터 불러오는 중..." : "아직 홈 캐릭터가 없어요";
+    help.textContent = waitingForCharacters
+      ? "저장된 홈 설정은 유지한 채 캐릭터 데이터를 불러오고 있어요."
+      : "도감에서 획득한 캐릭터를 최대 3명까지 홈 캐릭터로 설정할 수 있어요.";
+    dialogue.textContent = waitingForCharacters
+      ? "“잠시만 기다려주세요.”"
+      : "“캐릭터를 터치하면 대사가 표시됩니다.”";
     image.dataset.characterId = "";
     dialogue.dataset.characterId = "";
     if (saveImageButton) {
@@ -2140,7 +2219,7 @@ function renderHomeSettingList() {
       const id = button.dataset.homeArt;
       const next = button.dataset.mode === "full" ? "base" : "full";
       saveData.homeIllustrationMode[id] = next;
-      saveGame();
+      persistHomeSettingsV29("홈 일러스트 설정");
       renderHomeSettingList();
     });
   });
@@ -2150,7 +2229,7 @@ document.getElementById("openHomeCharacterButton")?.addEventListener("click", op
 document.getElementById("closeHomeCharacterModal")?.addEventListener("click", closeHomeCharacterModal);
 document.getElementById("saveHomeCharacterButton")?.addEventListener("click", () => {
   saveData.homeCharacters = [...tempHomeSelection].slice(0, 3);
-  saveGame();
+  persistHomeSettingsV29("홈 캐릭터 설정");
   renderHomeCharacter();
   renderCollection();
   closeHomeCharacterModal();
@@ -2474,6 +2553,7 @@ async function deleteCharacter(id) {
     delete saveData.ssrLimitBreak[id];
     delete saveData.homeIllustrationMode[id];
     saveData.homeCharacters = saveData.homeCharacters.filter((x) => x !== id);
+    backupHomeSelectionV29();
     saveGame();
     await loadPublicData();
   } catch (error) {
@@ -6999,6 +7079,7 @@ function recoverV5PendingGames(){
 ========================================================= */
 async function boot() {
   recoverPendingGacha();
+  restoreHomeSelectionBackupV29();
   updateMaxSeenDate();
   updatePointDisplays();
   renderAttendance();

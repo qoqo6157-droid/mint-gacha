@@ -5860,3 +5860,12 @@ body.gacha-cinematic-open {
 .collection-art-switch button.locked span::before {
   content: "🔒 ";
 }
+
+
+/* =========================================================
+   V29 - 홈 설정 새로고침 보존
+========================================================= */
+#homeCharacterName,
+#homeCharacterHelp {
+  transition: opacity .15s ease;
+}
