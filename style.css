@@ -4234,3 +4234,65 @@ body.gacha-cinematic-open {
     font-size: 7px;
   }
 }
+
+
+/* =========================================================
+   V16 - 가챠 결과 일러스트 전체 보기
+========================================================= */
+
+/* 현재 가챠 결과 카드 */
+.gacha-result-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255,255,255,.95), transparent 52%),
+    linear-gradient(145deg,#f2fbf8,#fbfffd);
+}
+
+.gacha-result-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important;
+  object-position: center center !important;
+}
+
+/* 예전 결과 모달 스타일이 남아 있어도 동일하게 전체 표시 */
+.result-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: linear-gradient(145deg,#f2fbf8,#fbfffd);
+}
+
+.result-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important;
+  object-position: center center !important;
+}
+
+/* 한정/SSR도 이미지 크롭 없이 전체 유지 */
+.gacha-result-card.sr .gacha-result-image img,
+.gacha-result-card.ssr .gacha-result-image img,
+.gacha-result-card.limited .gacha-result-image img {
+  object-fit: contain !important;
+  object-position: center center !important;
+}
+
+/* 모바일에서도 세로 일러스트가 너무 작아지지 않도록 이미지 영역 약간 확보 */
+@media (max-width: 800px) {
+  .gacha-result-image {
+    height: 170px;
+  }
+}
+
+@media (max-width: 430px) {
+  .gacha-result-image {
+    height: 155px;
+    padding: 4px;
+  }
+}
