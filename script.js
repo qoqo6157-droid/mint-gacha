@@ -32,6 +32,9 @@ const DEFAULT_SAVE = {
   blackjackPending: null,
   blackjackStreak: 0,
   blackjackRecent: null,
+  pokerPending: null,
+  pokerRecent: null,
+  pokerStats: { wins: 0, losses: 0, pushes: 0, hands: 0, bestHand: null, bestRank: -1 },
   derbyPending: null,
   derbyRecent: null
 };
@@ -4552,13 +4555,15 @@ setInterval(()=>{if(saveData.pet)renderPet();},60000);
 function renderCasino(){
   updatePointDisplays();
   renderBlackjack();
+  renderPoker();
   renderDerby();
 }
 
 document.querySelectorAll("[data-casino-view]").forEach((button)=>button.addEventListener("click",()=>{
   const view=button.dataset.casinoView;
   document.querySelectorAll("[data-casino-view]").forEach((b)=>b.classList.toggle("active",b===button));
-  ["rps","slots","blackjack","derby"].forEach((name)=>document.getElementById(`casinoView${name[0].toUpperCase()}${name.slice(1)}`)?.classList.toggle("hidden",name!==view));
+  ["rps","slots","blackjack","poker","derby"].forEach((name)=>document.getElementById(`casinoView${name[0].toUpperCase()}${name.slice(1)}`)?.classList.toggle("hidden",name!==view));
+  if(view==="poker")renderPoker();
 }));
 
 function validatedBet(inputId,maxMultiplier=1){
@@ -4579,7 +4584,7 @@ function cryptoRandomInt(max){
   return Math.floor(Math.random()*max);
 }
 document.querySelectorAll("[data-allin]").forEach((button)=>button.addEventListener("click",()=>{
-  const map={rps:"rpsBetInput",slots:"slotBetInput",blackjack:"blackjackBetInput",derby:"derbyBetInput"};
+  const map={rps:"rpsBetInput",slots:"slotBetInput",blackjack:"blackjackBetInput",poker:"pokerBetInput",derby:"derbyBetInput"};
   const input=document.getElementById(map[button.dataset.allin]);if(input)input.value=Math.max(1,saveData.points);
 }));
 
@@ -4849,6 +4854,915 @@ document.querySelectorAll("[data-bj-bet]").forEach((button)=>button.addEventList
   const input=document.getElementById("blackjackBetInput");
   if(input)input.value=Math.min(requested,Math.max(1,saveData.points));
 }));
+
+/* =========================================================
+   TEXAS HOLD'EM · HEADS-UP POKER
+========================================================= */
+
+const POKER_HAND_NAMES = [
+  "하이카드","원페어","투페어","트리플","스트레이트",
+  "플러시","풀하우스","포카드","스트레이트 플러시"
+];
+
+function pokerRankValue(rank){
+  return ({A:14,K:13,Q:12,J:11,10:10,9:9,8:8,7:7,6:6,5:5,4:4,3:3,2:2})[rank]||0;
+}
+
+function pokerCombination(arr,k){
+  const out=[];
+  function walk(start,pick){
+    if(pick.length===k){out.push(pick.slice());return;}
+    for(let i=start;i<=arr.length-(k-pick.length);i++){
+      pick.push(arr[i]);walk(i+1,pick);pick.pop();
+    }
+  }
+  walk(0,[]);
+  return out;
+}
+
+function evaluatePokerFive(cards){
+  const values=cards.map((c)=>pokerRankValue(c.rank)).sort((a,b)=>b-a);
+  const suits=cards.map((c)=>c.suit);
+  const counts={};
+  values.forEach((v)=>counts[v]=(counts[v]||0)+1);
+
+  const groups=Object.entries(counts)
+    .map(([v,count])=>({v:Number(v),count}))
+    .sort((a,b)=>b.count-a.count||b.v-a.v);
+
+  const unique=[...new Set(values)].sort((a,b)=>b-a);
+  if(unique.includes(14))unique.push(1);
+
+  let straightHigh=0;
+  for(let i=0;i<=unique.length-5;i++){
+    if(unique[i]-unique[i+4]===4){straightHigh=unique[i];break;}
+  }
+
+  const flush=suits.every((s)=>s===suits[0]);
+
+  if(flush&&straightHigh){
+    return {
+      rank:8,
+      tiebreak:[straightHigh],
+      name:straightHigh===14?"로열 플러시":"스트레이트 플러시"
+    };
+  }
+
+  const four=groups.find((g)=>g.count===4);
+  if(four){
+    const kicker=groups.find((g)=>g.v!==four.v)?.v||0;
+    return {rank:7,tiebreak:[four.v,kicker],name:"포카드"};
+  }
+
+  const trips=groups.filter((g)=>g.count===3);
+  const pairs=groups.filter((g)=>g.count>=2);
+  if(trips.length && pairs.some((g)=>g.v!==trips[0].v)){
+    const pair=pairs.find((g)=>g.v!==trips[0].v);
+    return {rank:6,tiebreak:[trips[0].v,pair.v],name:"풀하우스"};
+  }
+
+  if(flush){
+    return {rank:5,tiebreak:values.slice(),name:"플러시"};
+  }
+
+  if(straightHigh){
+    return {rank:4,tiebreak:[straightHigh],name:"스트레이트"};
+  }
+
+  if(trips.length){
+    const kickers=groups.filter((g)=>g.v!==trips[0].v).map((g)=>g.v).sort((a,b)=>b-a).slice(0,2);
+    return {rank:3,tiebreak:[trips[0].v,...kickers],name:"트리플"};
+  }
+
+  const exactPairs=groups.filter((g)=>g.count===2).sort((a,b)=>b.v-a.v);
+  if(exactPairs.length>=2){
+    const high=exactPairs[0].v,low=exactPairs[1].v;
+    const kicker=groups.filter((g)=>g.v!==high&&g.v!==low).map((g)=>g.v).sort((a,b)=>b-a)[0]||0;
+    return {rank:2,tiebreak:[high,low,kicker],name:"투페어"};
+  }
+
+  if(exactPairs.length===1){
+    const pair=exactPairs[0].v;
+    const kickers=groups.filter((g)=>g.v!==pair).map((g)=>g.v).sort((a,b)=>b-a).slice(0,3);
+    return {rank:1,tiebreak:[pair,...kickers],name:"원페어"};
+  }
+
+  return {rank:0,tiebreak:values.slice(),name:"하이카드"};
+}
+
+function comparePokerEval(a,b){
+  if(a.rank!==b.rank)return a.rank>b.rank?1:-1;
+  const n=Math.max(a.tiebreak.length,b.tiebreak.length);
+  for(let i=0;i<n;i++){
+    const av=a.tiebreak[i]||0,bv=b.tiebreak[i]||0;
+    if(av!==bv)return av>bv?1:-1;
+  }
+  return 0;
+}
+
+function evaluatePokerHand(cards){
+  if(!Array.isArray(cards)||cards.length<5)return null;
+  let best=null;
+  for(const combo of pokerCombination(cards,5)){
+    const value=evaluatePokerFive(combo);
+    if(!best||comparePokerEval(value,best)>0)best={...value,cards:combo};
+  }
+  return best;
+}
+
+function pokerPreflopStrength(cards){
+  if(!cards||cards.length<2)return .1;
+  const a=pokerRankValue(cards[0].rank),b=pokerRankValue(cards[1].rank);
+  const high=Math.max(a,b),low=Math.min(a,b);
+  let s=(high+low)/32;
+  if(a===b)s+=.28+(high/14)*.14;
+  if(cards[0].suit===cards[1].suit)s+=.06;
+  const gap=Math.abs(a-b);
+  if(gap===1)s+=.05;
+  else if(gap===2)s+=.025;
+  if(high===14)s+=.05;
+  return Math.max(.05,Math.min(.98,s));
+}
+
+function pokerStrength(cards,community){
+  if(community.length<3)return pokerPreflopStrength(cards);
+  const ev=evaluatePokerHand([...cards,...community]);
+  if(!ev)return .15;
+  const kicker=(ev.tiebreak[0]||0)/14;
+  return Math.min(.99,(ev.rank/8)*.84+kicker*.16);
+}
+
+function pokerCardHTML(card,hidden=false,index=0,community=false){
+  if(!card)return `<span class="${community?"poker-community-slot":"poker-card-slot"}"></span>`;
+  if(hidden){
+    return `<span class="poker-playing-card back" style="--poker-card-index:${index}">
+      <span class="poker-card-back-inner">♠</span>
+    </span>`;
+  }
+  const red=["♥","♦"].includes(card.suit);
+  return `<span class="poker-playing-card ${red?"red":""} ${community?"community-card":""}" style="--poker-card-index:${index}">
+    <span class="poker-card-corner top"><b>${card.rank}</b><i>${card.suit}</i></span>
+    <span class="poker-card-center">${card.suit}</span>
+    <span class="poker-card-corner bottom"><b>${card.rank}</b><i>${card.suit}</i></span>
+  </span>`;
+}
+
+function pokerStreetKorean(street){
+  return ({preflop:"PRE-FLOP",flop:"FLOP",turn:"TURN",river:"RIVER",showdown:"SHOWDOWN"})[street]||"WAITING";
+}
+
+function pokerLog(p,text){
+  if(!p)return;
+  if(!Array.isArray(p.log))p.log=[];
+  p.log.push({text,time:Date.now()});
+  if(p.log.length>12)p.log=p.log.slice(-12);
+}
+
+function pokerSafeAddToPot(p,amount){
+  const n=Math.floor(Number(amount)||0);
+  if(!Number.isSafeInteger(n)||n<0)return false;
+  const next=p.pot+n;
+  if(!Number.isSafeInteger(next))return false;
+  p.pot=next;
+  return true;
+}
+
+function pokerPlayerSpend(p,amount){
+  const n=Math.floor(Number(amount)||0);
+  if(!Number.isSafeInteger(n)||n<0||saveData.points<n)return false;
+  if(!spendPoints(n))return false;
+  p.playerStreetBet+=n;
+  p.playerTotal+=n;
+  pokerSafeAddToPot(p,n);
+  return true;
+}
+
+function pokerCpuPut(p,amount){
+  const n=Math.floor(Number(amount)||0);
+  if(!Number.isSafeInteger(n)||n<0)return false;
+  p.cpuStreetBet+=n;
+  p.cpuTotal+=n;
+  pokerSafeAddToPot(p,n);
+  return true;
+}
+
+function pokerToCall(p){
+  return Math.max(0,(p.currentBet||0)-(p.playerStreetBet||0));
+}
+
+function pokerMinRaise(p){
+  return Math.max(10,Math.floor(Number(p.bigBlind)||100));
+}
+
+function pokerSpawnChips(label="BET",strong=false){
+  const fx=document.getElementById("pokerChipFx");
+  const pot=document.getElementById("pokerPotBox");
+  if(!fx)return;
+  for(let i=0;i<(strong?12:7);i++){
+    const chip=document.createElement("span");
+    chip.className=`poker-chip ${strong?"strong":""}`;
+    chip.textContent=i%3===0?"●":"◆";
+    chip.style.setProperty("--cx",`${Math.round((Math.random()-.5)*150)}px`);
+    chip.style.setProperty("--cy",`${Math.round(-45-Math.random()*75)}px`);
+    chip.style.setProperty("--cd",`${Math.round(Math.random()*120)}ms`);
+    fx.appendChild(chip);
+    setTimeout(()=>chip.remove(),800);
+  }
+  pot?.classList.remove("pulse");
+  void pot?.offsetWidth;
+  pot?.classList.add("pulse");
+  setTimeout(()=>pot?.classList.remove("pulse"),420);
+}
+
+function pokerSetThinking(on){
+  const el=document.getElementById("pokerThinking");
+  el?.classList.toggle("hidden",!on);
+  const p=saveData.pokerPending;
+  if(p) p.cpuThinking=Boolean(on);
+}
+
+function pokerPlayerHandText(p){
+  if(!p)return "카드를 기다리는 중...";
+  if(p.community.length<3){
+    const ranks=p.player.map((c)=>`${c.rank}${c.suit}`).join(" ");
+    return `내 홀카드 · ${ranks}`;
+  }
+  const ev=evaluatePokerHand([...p.player,...p.community]);
+  return ev?`현재 최고 족보 · ${ev.name}`:"-";
+}
+
+function renderPokerLog(p){
+  const el=document.getElementById("pokerLog");
+  if(!el)return;
+  const logs=p?.log||[];
+  el.innerHTML=logs.length
+    ? logs.slice().reverse().map((x)=>`<div><span>${escapeHTML(x.text)}</span></div>`).join("")
+    : `<div class="empty">아직 진행 기록이 없어요.</div>`;
+}
+
+function renderPoker(){
+  const p=saveData.pokerPending;
+  const stats=saveData.pokerStats||DEFAULT_SAVE.pokerStats;
+
+  const point=document.getElementById("pokerPointDisplay");
+  const stat=document.getElementById("pokerStatsDisplay");
+  const best=document.getElementById("pokerBestHandDisplay");
+  if(point)point.textContent=`${formatPoints(saveData.points)} P`;
+  if(stat)stat.textContent=`${stats.wins||0}승 ${stats.losses||0}패 ${stats.pushes||0}무`;
+  if(best)best.textContent=stats.bestHand||"-";
+
+  const startPanel=document.getElementById("pokerStartPanel");
+  const actionPanel=document.getElementById("pokerActionPanel");
+  const result=document.getElementById("pokerResult");
+
+  if(!p){
+    startPanel?.classList.remove("round-active");
+    actionPanel?.classList.add("hidden");
+    pokerSetThinking(false);
+    document.getElementById("pokerPotDisplay").textContent="0 P";
+    document.getElementById("pokerStreetDisplay").textContent="WAITING";
+    document.getElementById("pokerCpuStatus").textContent="대기 중";
+    document.getElementById("pokerPlayerStatus").textContent="테이블에 입장해주세요.";
+    document.getElementById("pokerCurrentHand").textContent="카드를 기다리는 중...";
+    document.getElementById("pokerCpuCards").innerHTML=`<span class="poker-card-slot"></span><span class="poker-card-slot"></span>`;
+    document.getElementById("pokerPlayerCards").innerHTML=`<span class="poker-card-slot"></span><span class="poker-card-slot"></span>`;
+    document.getElementById("pokerCommunityCards").innerHTML=Array.from({length:5},()=>`<span class="poker-community-slot"></span>`).join("");
+    if(result)result.textContent=saveData.pokerRecent||"기본 배팅을 정하고 테이블에 입장하세요.";
+    renderPokerLog(null);
+    return;
+  }
+
+  startPanel?.classList.toggle("round-active",!p.finished);
+  document.getElementById("pokerPotDisplay").textContent=`${formatPoints(p.pot)} P`;
+  document.getElementById("pokerStreetDisplay").textContent=pokerStreetKorean(p.street);
+  document.getElementById("pokerCurrentHand").textContent=pokerPlayerHandText(p);
+
+  const revealCpu=Boolean(p.finished||p.street==="showdown");
+  document.getElementById("pokerCpuCards").innerHTML=p.cpu.map((c,i)=>pokerCardHTML(c,!revealCpu,i)).join("");
+  document.getElementById("pokerPlayerCards").innerHTML=p.player.map((c,i)=>pokerCardHTML(c,false,i)).join("");
+
+  const communitySlots=[];
+  for(let i=0;i<5;i++){
+    communitySlots.push(i<p.community.length?pokerCardHTML(p.community[i],false,i,true):`<span class="poker-community-slot"></span>`);
+  }
+  document.getElementById("pokerCommunityCards").innerHTML=communitySlots.join("");
+
+  const cpuStatus=document.getElementById("pokerCpuStatus");
+  const playerStatus=document.getElementById("pokerPlayerStatus");
+  if(cpuStatus)cpuStatus.textContent=p.finished?"SHOWDOWN":p.turn==="cpu"?"생각 중...":`이번 스트리트 ${formatPoints(p.cpuStreetBet)}P`;
+  if(playerStatus)playerStatus.textContent=p.finished?"HAND COMPLETE":p.turn==="player"?"당신의 차례":`이번 스트리트 ${formatPoints(p.playerStreetBet)}P`;
+
+  actionPanel?.classList.toggle("hidden",p.finished||p.turn!=="player");
+  pokerSetThinking(!p.finished&&p.turn==="cpu");
+
+  if(!p.finished&&p.turn==="player"){
+    const toCall=pokerToCall(p);
+    const callBtn=document.getElementById("pokerCallButton");
+    const callText=document.getElementById("pokerCallAmount");
+    const hint=document.getElementById("pokerActionHint");
+    const raiseInput=document.getElementById("pokerRaiseInput");
+    const raiseButton=document.getElementById("pokerRaiseButton");
+    const allin=document.getElementById("pokerAllInButton");
+
+    if(callBtn)callBtn.innerHTML=toCall>0?`CALL ${formatPoints(Math.min(toCall,saveData.points))}P <small>C</small>`:`CHECK <small>C</small>`;
+    if(callText)callText.textContent=toCall>0?`콜 필요 ${formatPoints(toCall)}P`:"CHECK 가능";
+    if(hint)hint.textContent=p.street==="preflop"?"PRE-FLOP · 당신부터 액션":"당신의 차례";
+
+    const minRaise=pokerMinRaise(p);
+    if(raiseInput){
+      raiseInput.min=minRaise;
+      if(!Number(raiseInput.value)||Number(raiseInput.value)<minRaise)raiseInput.value=minRaise;
+    }
+
+    const requiredForMin=Math.max(0,p.currentBet+minRaise-p.playerStreetBet);
+    if(raiseButton)raiseButton.disabled=saveData.points<requiredForMin||p.playerAllIn;
+    if(allin)allin.disabled=saveData.points<=0;
+  }
+
+  if(result){
+    result.textContent=p.finished
+      ? (p.resultText||saveData.pokerRecent||"핸드 종료")
+      : (p.message||`${pokerStreetKorean(p.street)} 진행 중`);
+  }
+
+  renderPokerLog(p);
+}
+
+function startPoker(){
+  if(saveData.pokerPending&&!saveData.pokerPending.finished){
+    scrollToPokerTable();
+    return;
+  }
+
+  const bigBlind=validatedBet("pokerBetInput",8);
+  if(!bigBlind)return;
+  if(bigBlind<10){alert("BIG BLIND는 최소 10P예요.");return;}
+
+  const smallBlind=Math.max(1,Math.ceil(bigBlind/2));
+  if(saveData.points<bigBlind){alert("프리플랍 콜까지 가능한 포인트가 필요해요.");return;}
+
+  const deck=createDeck();
+  const player=[deck.pop(),deck.pop()];
+  const cpu=[deck.pop(),deck.pop()];
+
+  if(!spendPoints(smallBlind))return;
+
+  const p={
+    schemaVersion:18,
+    startedAt:Date.now(),
+    bigBlind,
+    smallBlind,
+    deck,
+    player,
+    cpu,
+    community:[],
+    street:"preflop",
+    pot:smallBlind+bigBlind,
+    playerTotal:smallBlind,
+    cpuTotal:bigBlind,
+    playerStreetBet:smallBlind,
+    cpuStreetBet:bigBlind,
+    currentBet:bigBlind,
+    cpuHasActed:false,
+    cpuRaisedThisStreet:false,
+    playerAllIn:false,
+    turn:"player",
+    finished:false,
+    resultType:null,
+    message:`SB ${formatPoints(smallBlind)}P / BB ${formatPoints(bigBlind)}P · ${formatPoints(bigBlind-smallBlind)}P를 콜하면 돼요.`,
+    log:[]
+  };
+  pokerLog(p,`새 핸드 · YOU SB ${formatPoints(smallBlind)}P / CPU BB ${formatPoints(bigBlind)}P`);
+  saveData.pokerPending=p;
+  saveData.pokerStats.hands=(saveData.pokerStats.hands||0)+1;
+  saveGame();
+  renderPoker();
+  pokerSpawnChips("BLIND");
+  setTimeout(scrollToPokerTable,120);
+}
+
+function scrollToPokerTable(){
+  const el=document.querySelector(".poker-table");
+  el?.scrollIntoView({behavior:"smooth",block:"center"});
+  el?.classList.remove("attention");
+  void el?.offsetWidth;
+  el?.classList.add("attention");
+  setTimeout(()=>el?.classList.remove("attention"),700);
+}
+
+function pokerDealStreet(p,nextStreet){
+  p.street=nextStreet;
+  p.playerStreetBet=0;
+  p.cpuStreetBet=0;
+  p.currentBet=0;
+  p.cpuHasActed=false;
+  p.cpuRaisedThisStreet=false;
+
+  if(nextStreet==="flop"){
+    p.deck.pop();
+    p.community.push(p.deck.pop(),p.deck.pop(),p.deck.pop());
+    pokerLog(p,"FLOP 공개");
+  }else if(nextStreet==="turn"){
+    p.deck.pop();
+    p.community.push(p.deck.pop());
+    pokerLog(p,"TURN 공개");
+  }else if(nextStreet==="river"){
+    p.deck.pop();
+    p.community.push(p.deck.pop());
+    pokerLog(p,"RIVER 공개");
+  }
+
+  p.turn="cpu";
+  p.message=`${pokerStreetKorean(nextStreet)} · CPU 액션 대기`;
+  saveGame();
+  renderPoker();
+  setTimeout(()=>pokerCpuOpenAction(),520);
+}
+
+function pokerAdvanceStreet(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished)return;
+
+  if(p.playerAllIn){
+    pokerRunoutToShowdown();
+    return;
+  }
+
+  if(p.street==="preflop")pokerDealStreet(p,"flop");
+  else if(p.street==="flop")pokerDealStreet(p,"turn");
+  else if(p.street==="turn")pokerDealStreet(p,"river");
+  else if(p.street==="river")pokerShowdown();
+}
+
+function pokerCpuBetSize(p){
+  const halfPot=Math.max(p.bigBlind,Math.floor(p.pot/2));
+  const safe=Math.max(p.bigBlind,Math.min(halfPot,p.bigBlind*6));
+  return safe;
+}
+
+function pokerCpuOpenAction(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished||p.turn!=="cpu")return;
+
+  pokerSetThinking(true);
+  saveGame();
+
+  setTimeout(()=>{
+    const current=saveData.pokerPending;
+    if(!current||current.finished||current.turn!=="cpu")return;
+
+    const strength=pokerStrength(current.cpu,current.community);
+    const roll=Math.random();
+    const shouldBet=(strength>.67&&roll<.76)||(strength>.48&&roll<.38)||(strength<.30&&roll<.10);
+
+    current.cpuHasActed=true;
+
+    if(shouldBet){
+      const amount=pokerCpuBetSize(current);
+      pokerCpuPut(current,amount);
+      current.currentBet=current.cpuStreetBet;
+      current.turn="player";
+      current.message=`CPU가 ${formatPoints(amount)}P 베팅했어요.`;
+      pokerLog(current,`CPU BET ${formatPoints(amount)}P`);
+      pokerSpawnChips("CPU BET",strength>.7);
+    }else{
+      current.turn="player";
+      current.message="CPU CHECK · 당신의 차례";
+      pokerLog(current,"CPU CHECK");
+    }
+
+    saveGame();
+    renderPoker();
+  },520+cryptoRandomInt(420));
+}
+
+function pokerCpuRespondToRaise(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished)return;
+
+  p.turn="cpu";
+  p.message="CPU가 결정을 고민하고 있어요...";
+  saveGame();
+  renderPoker();
+  pokerSetThinking(true);
+
+  setTimeout(()=>{
+    const current=saveData.pokerPending;
+    if(!current||current.finished)return;
+
+    const toCall=Math.max(0,current.currentBet-current.cpuStreetBet);
+    const strength=pokerStrength(current.cpu,current.community);
+    const potOdds=toCall/Math.max(1,current.pot+toCall);
+    const foldChance=
+      strength<.24 ? Math.min(.82,.42+potOdds) :
+      strength<.40 ? Math.min(.50,.16+potOdds*.75) :
+      strength<.55 ? Math.min(.20,potOdds*.35) : .03;
+
+    if(Math.random()<foldChance){
+      pokerLog(current,`CPU FOLD · ${formatPoints(current.pot)}P 획득`);
+      finishPokerHand("cpu_fold");
+      return;
+    }
+
+    const canReraise=!current.cpuRaisedThisStreet&&!current.playerAllIn&&strength>.76&&Math.random()<.28;
+    if(canReraise){
+      pokerCpuPut(current,toCall);
+      const raise=Math.max(current.bigBlind,Math.min(Math.floor(current.pot*.45),current.bigBlind*5));
+      pokerCpuPut(current,raise);
+      current.currentBet=current.cpuStreetBet;
+      current.cpuRaisedThisStreet=true;
+      current.cpuHasActed=true;
+      current.turn="player";
+      current.message=`CPU RE-RAISE · 추가 ${formatPoints(current.currentBet-current.playerStreetBet)}P 필요`;
+      pokerLog(current,`CPU RE-RAISE → ${formatPoints(current.currentBet)}P`);
+      pokerSpawnChips("RE-RAISE",true);
+      saveGame();
+      renderPoker();
+      return;
+    }
+
+    pokerCpuPut(current,toCall);
+    current.cpuHasActed=true;
+    current.message=`CPU CALL ${formatPoints(toCall)}P`;
+    pokerLog(current,`CPU CALL ${formatPoints(toCall)}P`);
+    pokerSpawnChips("CALL");
+
+    saveGame();
+    renderPoker();
+
+    if(current.playerAllIn){
+      setTimeout(pokerRunoutToShowdown,420);
+    }else{
+      setTimeout(pokerAdvanceStreet,460);
+    }
+  },600+cryptoRandomInt(520));
+}
+
+function pokerPlayerCheckCall(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished||p.turn!=="player")return;
+
+  const toCall=pokerToCall(p);
+
+  if(toCall>0){
+    if(saveData.points<toCall){
+      pokerPlayerAllIn();
+      return;
+    }
+    if(!pokerPlayerSpend(p,toCall))return;
+    pokerLog(p,`YOU CALL ${formatPoints(toCall)}P`);
+    p.message=`CALL ${formatPoints(toCall)}P`;
+    pokerSpawnChips("CALL");
+  }else{
+    pokerLog(p,"YOU CHECK");
+    p.message="CHECK";
+  }
+
+  if(p.playerAllIn){
+    saveGame();renderPoker();setTimeout(pokerRunoutToShowdown,380);return;
+  }
+
+  if(!p.cpuHasActed){
+    p.turn="cpu";
+    saveGame();
+    renderPoker();
+    setTimeout(()=>pokerCpuPreflopOption(),450);
+  }else{
+    saveGame();
+    renderPoker();
+    setTimeout(pokerAdvanceStreet,400);
+  }
+}
+
+function pokerCpuPreflopOption(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished||p.turn!=="cpu")return;
+
+  pokerSetThinking(true);
+  setTimeout(()=>{
+    const current=saveData.pokerPending;
+    if(!current||current.finished||current.turn!=="cpu")return;
+
+    const strength=pokerStrength(current.cpu,current.community);
+    current.cpuHasActed=true;
+
+    if(strength>.72&&Math.random()<.55){
+      const raise=Math.max(current.bigBlind,Math.min(current.bigBlind*2,Math.floor(current.pot*.7)));
+      pokerCpuPut(current,raise);
+      current.currentBet=current.cpuStreetBet;
+      current.cpuRaisedThisStreet=true;
+      current.turn="player";
+      current.message=`CPU가 프리플랍에서 ${formatPoints(raise)}P 레이즈했어요.`;
+      pokerLog(current,`CPU PRE-FLOP RAISE +${formatPoints(raise)}P`);
+      pokerSpawnChips("RAISE",true);
+      saveGame();renderPoker();
+    }else{
+      pokerLog(current,"CPU CHECK · FLOP으로 진행");
+      current.message="CPU CHECK";
+      saveGame();renderPoker();
+      setTimeout(pokerAdvanceStreet,420);
+    }
+  },500+cryptoRandomInt(350));
+}
+
+function pokerPlayerRaise(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished||p.turn!=="player")return;
+
+  const input=document.getElementById("pokerRaiseInput");
+  const raise=Math.max(pokerMinRaise(p),Math.floor(Number(input?.value)||0));
+  const target=p.currentBet+raise;
+  const required=Math.max(0,target-p.playerStreetBet);
+
+  if(!Number.isSafeInteger(target)||!Number.isSafeInteger(required)||required<=0)return;
+  if(saveData.points<required){
+    alert("포인트가 부족해요. ALL-IN을 사용하거나 레이즈 금액을 줄여주세요.");
+    return;
+  }
+
+  if(!pokerPlayerSpend(p,required))return;
+  p.currentBet=p.playerStreetBet;
+  p.turn="cpu";
+  p.message=`YOU RAISE → ${formatPoints(p.currentBet)}P`;
+  pokerLog(p,`YOU RAISE +${formatPoints(raise)}P`);
+  pokerSpawnChips("RAISE",true);
+  saveGame();
+  renderPoker();
+  pokerCpuRespondToRaise();
+}
+
+function pokerPlayerAllIn(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished||p.turn!=="player"||saveData.points<=0)return;
+
+  const amount=saveData.points;
+  if(!pokerPlayerSpend(p,amount))return;
+  p.playerAllIn=true;
+
+  if(p.playerStreetBet<p.cpuStreetBet){
+    const excess=p.cpuStreetBet-p.playerStreetBet;
+    p.cpuStreetBet-=excess;
+    p.cpuTotal-=excess;
+    p.pot=Math.max(0,p.pot-excess);
+    p.currentBet=p.playerStreetBet;
+    pokerLog(p,`YOU ALL-IN ${formatPoints(amount)}P · CPU 초과 베팅 ${formatPoints(excess)}P 반환`);
+    saveGame();renderPoker();
+    pokerSpawnChips("ALL-IN",true);
+    setTimeout(pokerRunoutToShowdown,600);
+    return;
+  }
+
+  p.currentBet=p.playerStreetBet;
+  p.turn="cpu";
+  p.message=`YOU ALL-IN · 총 ${formatPoints(p.playerStreetBet)}P`;
+  pokerLog(p,`YOU ALL-IN +${formatPoints(amount)}P`);
+  pokerSpawnChips("ALL-IN",true);
+  saveGame();renderPoker();
+  pokerCpuRespondToRaise();
+}
+
+function pokerPlayerFold(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished||p.turn!=="player")return;
+  pokerLog(p,"YOU FOLD");
+  finishPokerHand("player_fold");
+}
+
+function pokerRunoutToShowdown(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished)return;
+
+  p.turn="none";
+
+  const revealNext=()=>{
+    const current=saveData.pokerPending;
+    if(!current||current.finished)return;
+
+    if(current.community.length<3){
+      current.deck.pop();
+      current.community.push(current.deck.pop(),current.deck.pop(),current.deck.pop());
+      current.street="flop";
+      pokerLog(current,"ALL-IN RUNOUT · FLOP");
+    }else if(current.community.length===3){
+      current.deck.pop();
+      current.community.push(current.deck.pop());
+      current.street="turn";
+      pokerLog(current,"ALL-IN RUNOUT · TURN");
+    }else if(current.community.length===4){
+      current.deck.pop();
+      current.community.push(current.deck.pop());
+      current.street="river";
+      pokerLog(current,"ALL-IN RUNOUT · RIVER");
+    }else{
+      pokerShowdown();
+      return;
+    }
+
+    saveGame();
+    renderPoker();
+    setTimeout(revealNext,520);
+  };
+
+  revealNext();
+}
+
+function pokerShowdown(){
+  const p=saveData.pokerPending;
+  if(!p||p.finished)return;
+
+  while(p.community.length<5){
+    if(p.community.length===0){p.deck.pop();p.community.push(p.deck.pop(),p.deck.pop(),p.deck.pop());}
+    else{p.deck.pop();p.community.push(p.deck.pop());}
+  }
+
+  p.street="showdown";
+  p.turn="none";
+
+  const playerEval=evaluatePokerHand([...p.player,...p.community]);
+  const cpuEval=evaluatePokerHand([...p.cpu,...p.community]);
+  const compare=comparePokerEval(playerEval,cpuEval);
+
+  p.playerEval=playerEval;
+  p.cpuEval=cpuEval;
+  pokerLog(p,`SHOWDOWN · YOU ${playerEval.name} / CPU ${cpuEval.name}`);
+
+  saveGame();
+  renderPoker();
+
+  setTimeout(()=>{
+    if(compare>0)finishPokerHand("showdown_win",playerEval,cpuEval);
+    else if(compare<0)finishPokerHand("showdown_lose",playerEval,cpuEval);
+    else finishPokerHand("showdown_push",playerEval,cpuEval);
+  },650);
+}
+
+function finishPokerHand(type,playerEval=null,cpuEval=null){
+  const p=saveData.pokerPending;
+  if(!p||p.finished)return;
+
+  p.finished=true;
+  p.street="showdown";
+  p.turn="none";
+  p.resultType=type;
+
+  const stats=saveData.pokerStats||(saveData.pokerStats=deepClone(DEFAULT_SAVE.pokerStats));
+  let payout=0;
+  let text="";
+
+  if(type==="cpu_fold"){
+    payout=p.pot;
+    stats.wins++;
+    text=`CPU FOLD · 당신의 승리! ${formatPoints(payout)}P 획득`;
+  }else if(type==="player_fold"){
+    stats.losses++;
+    text=`FOLD · 이번 POT ${formatPoints(p.pot)}P는 CPU가 가져갔어요.`;
+  }else if(type==="showdown_win"){
+    payout=p.pot;
+    stats.wins++;
+    text=`SHOWDOWN 승리! ${playerEval.name} ＞ ${cpuEval.name} · ${formatPoints(payout)}P 획득`;
+  }else if(type==="showdown_lose"){
+    stats.losses++;
+    text=`SHOWDOWN 패배 · ${playerEval.name} ＜ ${cpuEval.name}`;
+  }else{
+    payout=p.playerTotal;
+    stats.pushes++;
+    text=`CHOP POT · ${playerEval.name} 동률 · 내 투입금 ${formatPoints(payout)}P 반환`;
+  }
+
+  if(playerEval&&playerEval.rank>(stats.bestRank??-1)){
+    stats.bestRank=playerEval.rank;
+    stats.bestHand=playerEval.name;
+  }
+
+  if(payout)addPoints(payout);
+
+  p.resultText=text;
+  saveData.pokerRecent=text;
+  pokerLog(p,text);
+  saveGame();
+  renderPoker();
+  pokerShowdownEffect(type,playerEval);
+}
+
+function pokerShowdownEffect(type,playerEval){
+  const table=document.querySelector(".poker-table");
+  const flash=document.getElementById("pokerShowdownFlash");
+  if(!table||!flash)return;
+
+  table.classList.remove("win","lose","push","big-hand");
+  const cls=type==="showdown_win"||type==="cpu_fold"?"win":type==="showdown_push"?"push":"lose";
+  table.classList.add(cls);
+  if(playerEval?.rank>=4)table.classList.add("big-hand");
+
+  flash.className=`poker-showdown-flash ${cls} play`;
+  setTimeout(()=>{
+    flash.className="poker-showdown-flash";
+    table.classList.remove("win","lose","push","big-hand");
+  },1500);
+
+  if((type==="showdown_win"||type==="cpu_fold")&&playerEval?.rank>=4){
+    for(let i=0;i<24;i++){
+      const star=document.createElement("i");
+      star.className="poker-win-star";
+      star.style.setProperty("--px",`${Math.random()*100}%`);
+      star.style.setProperty("--py",`${20+Math.random()*60}%`);
+      star.style.setProperty("--pd",`${Math.random()*.45}s`);
+      flash.appendChild(star);
+      setTimeout(()=>star.remove(),1500);
+    }
+  }
+}
+
+function pokerSetRaisePreset(kind){
+  const p=saveData.pokerPending;
+  if(!p)return;
+  const min=pokerMinRaise(p);
+  let value=min;
+  if(kind==="half")value=Math.max(min,Math.floor(p.pot/2));
+  if(kind==="pot")value=Math.max(min,p.pot);
+  value=Math.min(value,saveData.points);
+  const input=document.getElementById("pokerRaiseInput");
+  if(input)input.value=Math.max(min,value);
+}
+
+function validPokerPendingV18(p){
+  return Boolean(
+    p &&
+    p.schemaVersion===18 &&
+    Array.isArray(p.deck) &&
+    Array.isArray(p.player) && p.player.length===2 &&
+    Array.isArray(p.cpu) && p.cpu.length===2 &&
+    Array.isArray(p.community) &&
+    Number.isSafeInteger(Math.floor(Number(p.pot))) &&
+    Number(p.pot)>=0
+  );
+}
+
+function recoverPokerPending(){
+  const p=saveData.pokerPending;
+  if(!p)return;
+
+  if(!validPokerPendingV18(p)){
+    const refund=Math.max(0,Math.floor(Number(p.playerTotal)||0));
+    if(!p.finished&&refund>0){
+      const next=saveData.points+refund;
+      if(Number.isSafeInteger(next))saveData.points=next;
+      saveData.pokerRecent=`이전 버전의 불완전한 포커 판을 정리하고 ${formatPoints(refund)}P를 반환했어요.`;
+    }
+    saveData.pokerPending=null;
+    saveGame();
+    return;
+  }
+
+  renderPoker();
+
+  if(!p.finished&&p.turn==="cpu"){
+    if(p.currentBet>p.playerStreetBet)pokerCpuRespondToRaise();
+    else if(p.street==="preflop")pokerCpuPreflopOption();
+    else pokerCpuOpenAction();
+  }
+}
+
+document.getElementById("pokerRuleButton")?.addEventListener("click",()=>{
+  document.getElementById("pokerRuleBox")?.classList.toggle("hidden");
+});
+
+document.getElementById("pokerStartButton")?.addEventListener("click",()=>{
+  const p=saveData.pokerPending;
+  if(p&&!p.finished){scrollToPokerTable();return;}
+  startPoker();
+});
+
+document.querySelectorAll("[data-poker-bet]").forEach((button)=>button.addEventListener("click",()=>{
+  const value=Math.max(10,Math.floor(Number(button.dataset.pokerBet)||10));
+  const input=document.getElementById("pokerBetInput");
+  if(input)input.value=Math.min(value,Math.max(10,saveData.points));
+}));
+
+document.querySelectorAll("[data-poker-raise]").forEach((button)=>button.addEventListener("click",()=>{
+  pokerSetRaisePreset(button.dataset.pokerRaise);
+}));
+
+document.getElementById("pokerFoldButton")?.addEventListener("click",pokerPlayerFold);
+document.getElementById("pokerCallButton")?.addEventListener("click",pokerPlayerCheckCall);
+document.getElementById("pokerRaiseButton")?.addEventListener("click",pokerPlayerRaise);
+document.getElementById("pokerAllInButton")?.addEventListener("click",pokerPlayerAllIn);
+
+document.addEventListener("keydown",(event)=>{
+  const view=document.getElementById("casinoViewPoker");
+  const p=saveData.pokerPending;
+  if(view?.classList.contains("hidden")||!p||p.finished||p.turn!=="player")return;
+  if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;
+
+  const key=event.key.toLowerCase();
+  if(key==="f"){event.preventDefault();pokerPlayerFold();}
+  else if(key==="c"){event.preventDefault();pokerPlayerCheckCall();}
+  else if(key==="a"){event.preventDefault();pokerPlayerAllIn();}
+  else if(key==="r"){
+    event.preventDefault();
+    document.getElementById("pokerRaiseInput")?.focus();
+  }
+});
 
 /* =========================================================
    NULL DERBY
@@ -5325,6 +6239,7 @@ async function boot() {
   ]);
 
   recoverV5PendingGames();
+  recoverPokerPending();
   renderEverything();
 }
 
