@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
   <header>
@@ -270,7 +270,7 @@
         <button class="game-menu-card" data-game-view="pang"><span>💥</span><strong>캐릭터 팡</strong><small>6×6 매치 퍼즐</small></button>
         <button class="game-menu-card" data-game-view="runner"><span>🏃</span><strong>캐릭터 점프</strong><small>2단 점프 러너</small></button>
         <button class="game-menu-card" data-game-view="tetris"><span>🧱</span><strong>테트리스</strong><small>HOLD · NEXT 5</small></button>
-        <button class="game-menu-card" data-game-view="rhythm"><span>🎵</span><strong>리듬 탭</strong><small>타이밍 선 터치</small></button>
+        <button class="game-menu-card" data-game-view="rhythm"><span>🎵</span><strong>리듬 탭</strong><small>PC D·F·J·K / 모바일 판정선 터치</small></button>
       </div>
 
       <!-- 카드 짝 맞추기 -->
@@ -460,6 +460,11 @@
           <div class="game-bonus-pill" id="rhythmBonusText">응원 보너스 +0%</div>
         </div>
 
+        <div class="rhythm-control-guide">
+          <div><strong>⌨ PC 조작</strong><span>D · F · J · K 키로 각 레인을 입력</span></div>
+          <div><strong>📱 모바일 조작</strong><span>노트가 판정선에 닿을 때 해당 레인을 직접 터치</span></div>
+        </div>
+
         <div class="rhythm-setting-grid">
           <label><span>응원 캐릭터</span><select id="rhythmCharacterSelect"></select></label>
           <label><span>노래</span><select id="rhythmSongSelect"><option value="">기본 비트 60초</option></select></label>
@@ -505,7 +510,7 @@
           <div class="rhythm-countdown hidden" id="rhythmCountdown">3</div>
         </div>
 
-        <p class="rhythm-touch-help">모바일: 노트가 아래 판정선에 닿을 때 해당 레인을 직접 터치</p>
+        
 
         <div class="game-action-row">
           <button class="mint-button" id="rhythmStartButton">게임 시작</button>
@@ -1394,6 +1399,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=24"></script>
+  <script src="script.js?v=25"></script>
 </body>
 </html>
