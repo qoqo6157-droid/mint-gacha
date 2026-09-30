@@ -3361,6 +3361,9 @@ async function usePangToolAt(tool, r, c) {
    캐릭터 점프
 ========================================================= */
 
+const RUNNER_MIN_REWARD_SECONDS = 3;
+const RUNNER_MIN_REWARD_SCORE = 300;
+
 let runnerState = {
   active: false,
   paused: false,
@@ -3527,7 +3530,9 @@ function drawRunner() {
   }
 }
 
-function runnerReward(score) {
+function runnerReward(score, elapsed) {
+  // 시작하자마자 죽어서 포인트를 반복 획득하는 것을 막기 위한 최소 플레이 조건.
+  if (elapsed < RUNNER_MIN_REWARD_SECONDS || score < RUNNER_MIN_REWARD_SCORE) return 0;
   if (score >= 3000) return 700;
   if (score >= 2000) return 500;
   if (score >= 1000) return 350;
@@ -3539,15 +3544,29 @@ function finishRunnerGame(quit = false) {
   if (!runnerState.active) return;
   runnerState.active = false;
   cancelAnimationFrame(runnerState.raf);
+
   const bonus = selectedCharacterRewardBonus(runnerState.selectedId);
-  const reward = quit ? 0 : applyPointBonus(runnerReward(runnerState.score), bonus);
+  const baseReward = quit ? 0 : runnerReward(runnerState.score, runnerState.elapsed);
+  const reward = baseReward > 0 ? applyPointBonus(baseReward, bonus) : 0;
+  const tooEarly = !quit && baseReward === 0;
+
   saveData.gameRecords.runner.highScore = Math.max(saveData.gameRecords.runner.highScore || 0, runnerState.score);
-  if (reward) addPoints(reward); else saveGame();
+
+  if (reward) addPoints(reward);
+  else saveGame();
+
   document.getElementById("runnerStartButton").disabled = false;
   document.getElementById("runnerPauseButton").disabled = true;
   document.getElementById("runnerQuitButton").disabled = true;
   document.getElementById("runnerPauseButton").textContent = "일시정지";
-  setMessage("runnerMessage", quit ? "포기했어요. 보상 없음." : `게임 오버! ${formatPoints(reward)}P 지급${bonus ? " · 풀돌 +20%" : ""}`, quit ? "error" : "success");
+
+  const message = quit
+    ? "포기했어요. 보상 없음."
+    : tooEarly
+      ? `너무 빨리 게임 오버! ${RUNNER_MIN_REWARD_SECONDS}초 이상 버텨야 포인트를 받을 수 있어요.`
+      : `게임 오버! ${formatPoints(reward)}P 지급${bonus ? " · 풀돌 +20%" : ""}`;
+
+  setMessage("runnerMessage", message, quit || tooEarly ? "error" : "success");
   renderRunnerStatus();
 }
 
