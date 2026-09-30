@@ -5961,6 +5961,11 @@ function renderV6HomeBanners(){
   // 전체 OFF 또는 등록된 활성 배너 0개면 이벤트 섹션 자체를 숨긴다.
   if(!bannerMasterEnabledV6 || active.length===0){
     if(section)section.style.display="none";
+    if(isAdmin)console.info("[Banner] 홈 배너 숨김",{
+      masterEnabled:bannerMasterEnabledV6,
+      activeCount:active.length,
+      totalCount:eventBanners.length
+    });
     banner.classList.remove("custom-banner");
     wrap.removeAttribute("style");
     clearBannerAnimationClassesV19(title);
@@ -6131,7 +6136,48 @@ document.getElementById("adminRefreshUsersButton")?.addEventListener("click",()=
    V6 Storage helpers
 ========================================================= */
 function fileExtV6(file){return (file.name.split(".").pop()||"bin").replace(/[^a-z0-9]/gi,"").toLowerCase();}
-async function uploadPublicFileV6(bucket,file,prefix){if(!file)return null;const path=`${prefix}/${safeUUID()}.${fileExtV6(file)}`;const{error}=await supabaseClient.storage.from(bucket).upload(path,file,{cacheControl:"3600",upsert:false});if(error)throw error;return supabaseClient.storage.from(bucket).getPublicUrl(path).data.publicUrl;}
+
+function uploadMimeTypeV20(file){
+  const ext=fileExtV6(file);
+  const map={
+    png:"image/png",
+    jpg:"image/jpeg",
+    jpeg:"image/jpeg",
+    webp:"image/webp",
+    gif:"image/gif",
+    avif:"image/avif",
+    ttf:"font/ttf",
+    otf:"font/otf",
+    woff:"font/woff",
+    woff2:"font/woff2",
+    mp3:"audio/mpeg",
+    wav:"audio/wav",
+    ogg:"audio/ogg",
+    m4a:"audio/mp4"
+  };
+  return map[ext]||file.type||"application/octet-stream";
+}
+
+async function uploadPublicFileV6(bucket,file,prefix){
+  if(!file)return null;
+  const ext=fileExtV6(file);
+  const path=`${prefix}/${safeUUID()}.${ext}`;
+  const contentType=uploadMimeTypeV20(file);
+
+  const{error}=await supabaseClient.storage.from(bucket).upload(path,file,{
+    cacheControl:"3600",
+    upsert:false,
+    contentType
+  });
+
+  if(error){
+    const wrapped=new Error(`${error.message} · 업로드 형식 ${contentType} (.${ext})`);
+    wrapped.cause=error;
+    throw wrapped;
+  }
+
+  return supabaseClient.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
 async function deleteStorageUrlV6(bucket,url){if(!url)return;try{const marker=`/${bucket}/`;const idx=url.indexOf(marker);if(idx<0)return;const path=decodeURIComponent(url.slice(idx+marker.length));await supabaseClient.storage.from(bucket).remove([path]);}catch{}}
 
 /* =========================================================
@@ -6361,6 +6407,18 @@ document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{
     return;
   }
 
+  const imageExt=imageFile?fileExtV6(imageFile):"";
+  const fontExt=fontFile?fileExtV6(fontFile):"";
+
+  if(imageFile&&!["png","jpg","jpeg","webp","gif","avif"].includes(imageExt)){
+    setMessage("bannerFormMessage","배너 이미지는 PNG/JPG/WEBP/GIF/AVIF만 가능해요.","error");
+    return;
+  }
+  if(fontFile&&!["ttf","otf","woff","woff2"].includes(fontExt)){
+    setMessage("bannerFormMessage","사용자 폰트는 TTF/OTF/WOFF/WOFF2만 가능해요.","error");
+    return;
+  }
+
   let uploadedImageUrl=null;
   let uploadedFontUrl=null;
 
@@ -6372,11 +6430,11 @@ document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{
     setMessage("bannerFormMessage","배너를 서버에 저장하고 있어요...");
 
     if(imageFile){
-      setMessage("bannerFormMessage","배너 이미지 업로드 중...");
+      setMessage("bannerFormMessage",`배너 이미지 업로드 중... (${uploadMimeTypeV20(imageFile)})`);
       uploadedImageUrl=await uploadPublicFileV6("banner-assets",imageFile,"images");
     }
     if(fontFile){
-      setMessage("bannerFormMessage","폰트 업로드 중...");
+      setMessage("bannerFormMessage",`폰트 업로드 중... (${uploadMimeTypeV20(fontFile)})`);
       uploadedFontUrl=await uploadPublicFileV6("banner-assets",fontFile,"fonts");
     }
 
@@ -6420,7 +6478,22 @@ document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{
       await deleteStorageUrlV6("banner-assets",existing.font_url);
     }
 
+    // 새 활성 배너를 등록했는데 전체 배너 스위치가 꺼져 있으면 자동으로 켜준다.
+    // "저장 성공했는데 홈에 안 보임" 상태를 방지.
+    if(!id && payload.enabled && !bannerMasterEnabledV6){
+      const masterRes=await supabaseClient.from("site_settings").upsert({
+        key:"banner_master",
+        value:{enabled:true}
+      });
+      if(!masterRes.error){
+        bannerMasterEnabledV6=true;
+        const masterInput=document.getElementById("bannerMasterInput");
+        if(masterInput)masterInput.checked=true;
+      }
+    }
+
     await loadV6PublicData();
+    activeBannerIndex=0;
     renderAdminBannerListV6();
     renderV6HomeBanners();
 
@@ -6436,9 +6509,10 @@ document.getElementById("bannerForm")?.addEventListener("submit",async(e)=>{
 
     const raw=String(error?.message||error||"알 수 없는 오류");
     const hint=
-      raw.includes("column") ? "setup_v19.sql을 먼저 실행했는지 확인해주세요." :
-      raw.includes("row-level security")||raw.includes("policy") ? "배너 관리자 RLS 정책이 없어요. setup_v19.sql을 실행해주세요." :
-      raw.includes("Bucket")||raw.includes("bucket") ? "banner-assets Storage 버킷이 없어요. setup_v19.sql을 실행해주세요." :
+      raw.includes("mime type")||raw.includes("MIME") ? "Storage 허용 형식 문제예요. setup_v20.sql을 실행하면 해결됩니다." :
+      raw.includes("column") ? "setup_v20.sql을 먼저 실행했는지 확인해주세요." :
+      raw.includes("row-level security")||raw.includes("policy") ? "배너 관리자 RLS 정책이 없어요. setup_v20.sql을 실행해주세요." :
+      raw.includes("Bucket")||raw.includes("bucket") ? "banner-assets Storage 버킷 설정 문제예요. setup_v20.sql을 실행해주세요." :
       "";
     setMessage("bannerFormMessage",`배너 저장 실패: ${raw}${hint?` · ${hint}`:""}`,"error");
   }finally{
