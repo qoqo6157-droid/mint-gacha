@@ -291,7 +291,17 @@ function openPage(pageName) {
 }
 
 navButtons.forEach((button) => button.addEventListener("click", () => openPage(button.dataset.page)));
-document.getElementById("goGachaButton")?.addEventListener("click", () => openPage("gacha"));
+
+function openLimitedGachaPage(){
+  openPage("gacha");
+  document.querySelectorAll("[data-gacha-tab]").forEach((b)=>b.classList.remove("active"));
+  const limitedTab=document.querySelector('[data-gacha-tab="limited"]');
+  limitedTab?.classList.add("active");
+  document.getElementById("normalGachaPanel")?.classList.add("hidden");
+  document.getElementById("limitedGachaPanel")?.classList.remove("hidden");
+  renderGacha();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
 
 document.querySelectorAll("[data-gacha-tab]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -5945,69 +5955,57 @@ function renderV6HomeBanners(){
     .filter((b)=>b.enabled)
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
 
-  const banner=document.getElementById("homeEventBanner"),
-        wrap=document.getElementById("homeBannerTextWrap"),
-        title=document.getElementById("homeBannerTitle"),
-        text=document.getElementById("homeBannerText"),
-        image=document.getElementById("homeBannerImage"),
-        dots=document.getElementById("homeBannerDots"),
-        prev=document.getElementById("homeBannerPrev"),
-        next=document.getElementById("homeBannerNext");
+  const banner=document.getElementById("homeEventBanner");
+  const wrap=document.getElementById("homeBannerTextWrap");
+  const title=document.getElementById("homeBannerTitle");
+  const dots=document.getElementById("homeBannerDots");
 
-  if(!banner||!wrap||!title||!text||!image)return;
+  if(!banner||!wrap||!title)return;
   if(bannerSlideTimer){clearInterval(bannerSlideTimer);bannerSlideTimer=null;}
 
-  // 중요: 관리자가 등록하지 않은 픽업을 자동으로 배너화하지 않음.
-  // 전체 OFF 또는 등록된 활성 배너 0개면 이벤트 섹션 자체를 숨긴다.
   if(!bannerMasterEnabledV6 || active.length===0){
     if(section)section.style.display="none";
-    if(isAdmin)console.info("[Banner] 홈 배너 숨김",{
-      masterEnabled:bannerMasterEnabledV6,
-      activeCount:active.length,
-      totalCount:eventBanners.length
-    });
     banner.classList.remove("custom-banner");
+    banner.style.backgroundImage="";
     wrap.removeAttribute("style");
     clearBannerAnimationClassesV19(title);
     title.removeAttribute("style");
-    text.removeAttribute("style");
-    image.removeAttribute("style");
-    banner.style.backgroundImage="";
+    title.textContent="";
     if(dots)dots.innerHTML="";
-    prev?.classList.add("hidden");
-    next?.classList.add("hidden");
     return;
   }
 
   if(section)section.style.display="";
   activeBannerIndex=((activeBannerIndex%active.length)+active.length)%active.length;
   const b=active[activeBannerIndex];
+
   addRemoteFontV6(b);
 
   banner.classList.add("custom-banner");
-  banner.style.backgroundImage=b.image_url?`url('${b.image_url}')`:"linear-gradient(135deg,#c9f7e8,#f8fffc)";
+  banner.style.backgroundImage=b.image_url
+    ?`url('${b.image_url}')`
+    :"linear-gradient(135deg,#c9f7e8,#f8fffc)";
 
-  wrap.style.left=`${Number(b.x_pct??25)}%`;
-  wrap.style.top=`${Number(b.y_pct??50)}%`;
+  // X/Y는 관리자 미리보기와 동일하게 "텍스트의 중심점" 기준.
+  // width:max-content + translate(-50%,-50%)로 실제 홈에서도 좌표가 틀어지지 않게 한다.
+  wrap.style.left=`${Math.max(0,Math.min(100,Number(b.x_pct??25)))}%`;
+  wrap.style.top=`${Math.max(0,Math.min(100,Number(b.y_pct??50)))}%`;
+  wrap.style.width="max-content";
+  wrap.style.maxWidth="92%";
+  wrap.style.textAlign="center";
 
-  title.textContent=b.text||"이벤트";
+  // 관리자가 입력한 문구 외에는 홈 배너 내부에 아무 글자도 추가하지 않는다.
+  title.textContent=b.text||"";
+  title.style.margin="0";
+  title.style.lineHeight="1.15";
+  title.style.whiteSpace="normal";
+  title.style.textAlign="center";
   applyBannerTextStyleV19(title,b);
 
-  text.textContent="배너를 눌러 가챠로 이동하세요.";
-  text.style.fontFamily=title.style.fontFamily;
-  image.innerHTML="";
+  // 홈에서는 화살표/버튼/추가 안내 텍스트 없이 자동 슬라이드만 사용.
+  if(dots)dots.innerHTML="";
 
-  if(dots)dots.innerHTML=active.map((_,i)=>`<button class="banner-dot ${i===activeBannerIndex?"active":""}" data-banner-dot="${i}" aria-label="배너 ${i+1}"></button>`).join("");
-  dots?.querySelectorAll("[data-banner-dot]").forEach((el)=>el.addEventListener("click",()=>{
-    activeBannerIndex=Number(el.dataset.bannerDot)||0;
-    renderV6HomeBanners();
-  }));
-
-  const multi=active.length>1;
-  prev?.classList.toggle("hidden",!multi);
-  next?.classList.toggle("hidden",!multi);
-
-  if(multi){
+  if(active.length>1){
     bannerSlideTimer=setInterval(()=>{
       activeBannerIndex=(activeBannerIndex+1)%active.length;
       renderV6HomeBanners();
@@ -6015,9 +6013,13 @@ function renderV6HomeBanners(){
   }
 }
 
-document.getElementById("homeBannerPrev")?.addEventListener("click",(e)=>{e.stopPropagation();const n=eventBanners.filter((b)=>b.enabled).length;if(n){activeBannerIndex=(activeBannerIndex-1+n)%n;renderV6HomeBanners();}});
-document.getElementById("homeBannerNext")?.addEventListener("click",(e)=>{e.stopPropagation();const n=eventBanners.filter((b)=>b.enabled).length;if(n){activeBannerIndex=(activeBannerIndex+1)%n;renderV6HomeBanners();}});
-document.getElementById("homeEventBanner")?.addEventListener("click",(e)=>{if(e.target.closest("button"))return;openPage("gacha");});
+document.getElementById("homeEventBanner")?.addEventListener("click",()=>openLimitedGachaPage());
+document.getElementById("homeEventBanner")?.addEventListener("keydown",(event)=>{
+  if(event.key==="Enter"||event.key===" "){
+    event.preventDefault();
+    openLimitedGachaPage();
+  }
+});
 
 function renderRhythmSongSelector(){
   const select=document.getElementById("rhythmSongSelect");if(!select)return;

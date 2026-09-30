@@ -5427,3 +5427,98 @@ body.gacha-cinematic-open {
     animation-duration: .01ms !important;
   }
 }
+
+
+/* =========================================================
+   V21 - 홈 배너 미리보기 좌표 일치 / 순수 배너화
+========================================================= */
+
+/* 홈 배너 안에는 관리자 입력 문구만 표시 */
+#homeEventBanner.clean-home-banner {
+  position: relative;
+  min-height: 280px;
+  padding: 0 !important;
+  display: block;
+  overflow: hidden;
+  cursor: pointer;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+
+/* 기존 흰색 그라데이션/장식 제거: 관리자 미리보기의 원본 이미지 그대로 */
+#homeEventBanner.clean-home-banner::before,
+#homeEventBanner.clean-home-banner::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* PICK UP, 안내문구, 버튼, 별도 캐릭터 이미지 영역은 V21에서 사용하지 않음 */
+#homeEventBanner .event-badge,
+#homeEventBanner #homeBannerText,
+#homeEventBanner #goGachaButton,
+#homeEventBanner #homeBannerImage,
+#homeEventBanner .banner-arrow {
+  display: none !important;
+}
+
+/* 상단의 슬라이드 점도 제거. 여러 배너면 5초 자동 슬라이드만 수행 */
+#homeBannerDots {
+  display: none !important;
+}
+
+#homeEventBanner .clean-banner-text {
+  position: absolute !important;
+  z-index: 3;
+  width: max-content;
+  max-width: 92%;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: translate(-50%,-50%) !important;
+  text-align: center;
+  pointer-events: none;
+}
+
+#homeEventBanner #homeBannerTitle {
+  display: block;
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: min(92vw, 1000px);
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* 기존 custom banner 규칙 중 좌표를 흐트러뜨리던 max-width 520px 효과 덮어쓰기 */
+.event-banner.custom-banner .event-banner-text.clean-banner-text {
+  width: max-content !important;
+  max-width: 92% !important;
+  transform: translate(-50%,-50%) !important;
+  text-align: center !important;
+}
+
+/* 배너 전체가 클릭 가능한 링크처럼 보이게 */
+#homeEventBanner.clean-home-banner:hover {
+  filter: brightness(1.015);
+}
+
+#homeEventBanner.clean-home-banner:focus-visible {
+  outline: 3px solid rgba(50,199,155,.28);
+  outline-offset: 3px;
+}
+
+@media (max-width: 800px) {
+  #homeEventBanner.clean-home-banner {
+    min-height: 220px;
+  }
+
+  #homeEventBanner .clean-banner-text {
+    max-width: 90%;
+  }
+}
+
+@media (max-width: 430px) {
+  #homeEventBanner.clean-home-banner {
+    min-height: 190px;
+  }
+}

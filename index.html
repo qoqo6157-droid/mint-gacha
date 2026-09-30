@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
   <header>
@@ -42,17 +42,9 @@
           <div class="banner-dots" id="homeBannerDots"></div>
         </div>
 
-        <div class="event-banner" id="homeEventBanner">
-          <button class="banner-arrow banner-prev hidden" id="homeBannerPrev" type="button" aria-label="이전 배너">‹</button>
-          <button class="banner-arrow banner-next hidden" id="homeBannerNext" type="button" aria-label="다음 배너">›</button>
-          <div class="event-banner-text" id="homeBannerTextWrap">
-            <span class="event-badge">PICK UP</span>
-            <h4 id="homeBannerTitle">새로운 한정 픽업!</h4>
-            <p id="homeBannerText">현재 진행 중인 한정 캐릭터를 확인해보세요.</p>
-            <button type="button" id="goGachaButton">가챠 보러가기</button>
-          </div>
-          <div class="event-banner-image" id="homeBannerImage">
-            <span>CHARACTER</span>
+        <div class="event-banner clean-home-banner" id="homeEventBanner" role="button" tabindex="0" aria-label="한정 가챠로 이동">
+          <div class="event-banner-text clean-banner-text" id="homeBannerTextWrap">
+            <h4 id="homeBannerTitle"></h4>
           </div>
         </div>
       </section>
@@ -1397,6 +1389,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=20"></script>
+  <script src="script.js?v=21"></script>
 </body>
 </html>
