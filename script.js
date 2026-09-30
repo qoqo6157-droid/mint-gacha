@@ -4645,6 +4645,8 @@ function startBlackjack(){
   const deck=createDeck();
 
   saveData.blackjackPending={
+    schemaVersion:17,
+    startedAt:Date.now(),
     bet,
     originalBet:bet,
     deck,
@@ -4656,6 +4658,9 @@ function startBlackjack(){
   };
   saveGame();
   renderBlackjack();
+  const resultBox=document.getElementById("blackjackResult");
+  if(resultBox)resultBox.textContent=`${formatPoints(bet)}P 배팅 완료 · 카드를 받았어요!`;
+  setTimeout(scrollToBlackjackTable,120);
 
   const p=saveData.blackjackPending;
   const playerNatural=handScore(p.player)===21;
@@ -4719,8 +4724,8 @@ function renderBlackjack(){
     betRow?.classList.add("round-active");
     betRow?.classList.remove("round-finished");
     if(dealButton){
-      dealButton.disabled=true;
-      dealButton.textContent="진행 중";
+      dealButton.disabled=false;
+      dealButton.textContent="↓ 현재 판 이어하기";
     }
 
     const doubleButton=document.getElementById("blackjackDoubleButton");
@@ -4814,7 +4819,28 @@ function finishBlackjackRound(type){
   renderBlackjack();
   document.getElementById("blackjackResult").textContent=text;
 }
-document.getElementById("blackjackDealButton")?.addEventListener("click",startBlackjack);
+function scrollToBlackjackTable(){
+  const table=document.querySelector(".blackjack-table-v15");
+  const actions=document.getElementById("blackjackActions");
+  const target=actions && !actions.classList.contains("hidden") ? actions : table;
+  target?.scrollIntoView({behavior:"smooth",block:"center"});
+  table?.classList.remove("blackjack-attention");
+  void table?.offsetWidth;
+  table?.classList.add("blackjack-attention");
+  setTimeout(()=>table?.classList.remove("blackjack-attention"),700);
+}
+
+function handleBlackjackMainButton(){
+  const p=saveData.blackjackPending;
+  if(p && !p.finished){
+    scrollToBlackjackTable();
+    return;
+  }
+  startBlackjack();
+  setTimeout(scrollToBlackjackTable,140);
+}
+
+document.getElementById("blackjackDealButton")?.addEventListener("click",handleBlackjackMainButton);
 document.getElementById("blackjackHitButton")?.addEventListener("click",blackjackHit);
 document.getElementById("blackjackStandButton")?.addEventListener("click",blackjackStand);
 document.getElementById("blackjackDoubleButton")?.addEventListener("click",blackjackDouble);
@@ -5228,15 +5254,50 @@ function renderV6AdminPanels(){if(!isAdmin)return;renderPetGiftItemAdminV7();con
    V5 시작 보조
 ========================================================= */
 
+function validBlackjackPendingV17(p){
+  return Boolean(
+    p &&
+    p.schemaVersion===17 &&
+    Number.isSafeInteger(Math.floor(Number(p.bet))) &&
+    Number(p.bet)>0 &&
+    Array.isArray(p.deck) &&
+    Array.isArray(p.player) &&
+    p.player.length>=2 &&
+    Array.isArray(p.dealer) &&
+    p.dealer.length>=2
+  );
+}
+
 function recoverV5PendingGames(){
   if(saveData.derbyPending){
     if(Date.now()>=saveData.derbyPending.finishAt)settleDerby();
     else setTimeout(()=>renderDerby(),100);
   }
-  if(saveData.blackjackPending?.finished){
+
+  const p=saveData.blackjackPending;
+  if(!p)return;
+
+  // v17 이전에 남아 있던 진행 중 판 때문에 "진행 중"에 갇히는 문제를 1회 정리.
+  // 아직 끝나지 않은 예전 판이면 현재 배팅액을 돌려주고 새 판을 시작할 수 있게 한다.
+  if(!validBlackjackPendingV17(p)){
+    if(!p.finished){
+      const refund=Math.floor(Number(p.bet)||0);
+      if(Number.isSafeInteger(refund)&&refund>0){
+        const next=saveData.points+refund;
+        if(Number.isSafeInteger(next)) saveData.points=next;
+      }
+      saveData.blackjackRecent="이전 버전에서 남아 있던 진행 중 판을 초기화하고 배팅금을 반환했어요.";
+    }
     saveData.blackjackPending=null;
     saveGame();
-  }else if(saveData.blackjackPending){
+    renderBlackjack();
+    updatePointDisplays();
+    return;
+  }
+
+  if(p.finished){
+    renderBlackjack();
+  }else{
     renderBlackjack();
   }
 }

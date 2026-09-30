@@ -4296,3 +4296,41 @@ body.gacha-cinematic-open {
     padding: 4px;
   }
 }
+
+
+/* =========================================================
+   V17 - 블랙잭 배팅/진행 UX 수정
+========================================================= */
+
+.blackjack-bet-box.round-active .blackjack-deal-button {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  background: linear-gradient(135deg,#3f77c2,#4f63d0);
+}
+
+.blackjack-bet-box.round-active .blackjack-deal-button:hover {
+  filter: brightness(1.08);
+}
+
+.blackjack-table-v15.blackjack-attention {
+  animation: blackjackAttention .65s ease;
+}
+
+@keyframes blackjackAttention {
+  0%,100% {
+    box-shadow: inset 0 0 30px rgba(0,0,0,.06);
+  }
+  42% {
+    box-shadow:
+      inset 0 0 34px rgba(255,223,87,.12),
+      0 0 0 4px rgba(229,203,67,.18),
+      0 0 28px rgba(229,203,67,.16);
+  }
+}
+
+@media (max-width: 620px) {
+  .blackjack-deal-button {
+    position: relative;
+  }
+}
