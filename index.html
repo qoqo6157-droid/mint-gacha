@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
   <header>
@@ -626,38 +626,70 @@
       </section>
 
       <section class="casino-panel hidden" id="casinoViewBlackjack">
-        <div class="casino-game-card">
-          <div class="blackjack-head">
-            <h3>🃏 블랙잭</h3>
-            <span id="blackjackStreakText">연승 0</span>
-          </div>
-          <div class="blackjack-table">
+        <div class="blackjack-v15">
+          <div class="blackjack-v15-head">
             <div>
-              <span>DEALER</span>
-              <div class="playing-cards" id="dealerCards"></div>
-              <strong id="dealerScore">?</strong>
-            </div>
-            <div>
-              <span>PLAYER</span>
-              <div class="playing-cards" id="playerCards"></div>
-              <strong id="playerScore">0</strong>
+              <h3>🃏 BLACKJACK · 21</h3>
+              <p>카드 합을 21에 가깝게! 21 초과는 BUST · 일반 승리 2배 · 첫 2장 BLACKJACK은 2.5배 · PUSH는 원금 반환.</p>
             </div>
           </div>
-          <div class="bet-row" id="blackjackBetRow">
-            <input type="number" id="blackjackBetInput" min="1" step="1" value="100">
-            <button class="quick-bet" data-bj-bet="100">100</button>
-            <button class="quick-bet" data-bj-bet="500">500</button>
-            <button class="quick-bet" data-bj-bet="1000">1,000</button>
-            <button class="quick-bet" data-bj-bet="5000">5,000</button>
-            <button class="white-button" data-allin="blackjack">전재산</button>
-            <button class="mint-button" id="blackjackDealButton">배팅 & 시작</button>
+
+          <div class="blackjack-balance">
+            <span>🪙 보유 포인트:</span>
+            <strong id="blackjackPointDisplay">0 P</strong>
           </div>
+
+          <div class="blackjack-bet-box" id="blackjackBetRow">
+            <label for="blackjackBetInput">배팅 포인트</label>
+            <div class="blackjack-bet-main">
+              <input type="number" id="blackjackBetInput" min="1" step="1" value="100" inputmode="numeric">
+              <button class="blackjack-allin" data-allin="blackjack" type="button">💰 전재산</button>
+            </div>
+
+            <div class="blackjack-quick-bets">
+              <button type="button" data-bj-bet="100">100P</button>
+              <button type="button" data-bj-bet="500">500P</button>
+              <button type="button" data-bj-bet="1000">1,000P</button>
+              <button type="button" data-bj-bet="5000">5,000P</button>
+            </div>
+
+            <button class="blackjack-deal-button" id="blackjackDealButton" type="button">🃏 카드 받기</button>
+          </div>
+
+          <div class="blackjack-streak" id="blackjackStreakText">🔥 현재 0연승</div>
+
+          <div class="blackjack-table-v15">
+            <section class="blackjack-hand-zone dealer-zone">
+              <div class="blackjack-zone-title">
+                <strong>🎩 DEALER</strong>
+                <button class="blackjack-help" type="button" title="딜러는 카드 합이 17 이상이 될 때까지 자동으로 카드를 받습니다.">?</button>
+                <span class="blackjack-score-badge" id="dealerScore">?</span>
+              </div>
+              <div class="playing-cards-v15" id="dealerCards"></div>
+            </section>
+
+            <div class="blackjack-table-divider"></div>
+
+            <section class="blackjack-hand-zone player-zone">
+              <div class="blackjack-zone-title">
+                <strong>YOU</strong>
+                <span class="blackjack-score-badge" id="playerScore">0</span>
+              </div>
+              <div class="playing-cards-v15" id="playerCards"></div>
+            </section>
+          </div>
+
           <div class="blackjack-actions hidden" id="blackjackActions">
-            <button class="mint-button" id="blackjackHitButton">HIT</button>
-            <button class="white-button" id="blackjackStandButton">STAND</button>
-            <button class="white-button" id="blackjackDoubleButton">DOUBLE</button>
+            <button type="button" id="blackjackHitButton">✦ HIT</button>
+            <button type="button" id="blackjackStandButton">✋ STAND</button>
+            <button type="button" id="blackjackDoubleButton">×2 DOUBLE</button>
           </div>
-          <div class="casino-result" id="blackjackResult">배팅 후 시작하세요.</div>
+
+          <div class="blackjack-result-v15" id="blackjackResult">배팅금을 정하고 카드 받기를 눌러 주세요.</div>
+
+          <div class="blackjack-rule-note">
+            A는 1 또는 11로 자동 계산 · J/Q/K는 10 · 딜러는 17 이상에서 멈춤 · 스플릿/보험은 사용하지 않아요 · 진행 중 새로고침해도 현재 판이 복구됩니다.
+          </div>
         </div>
       </section>
 
@@ -1198,6 +1230,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=14"></script>
+  <script src="script.js?v=15"></script>
 </body>
 </html>

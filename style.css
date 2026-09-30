@@ -3816,3 +3816,421 @@ body.gacha-cinematic-open {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* =========================================================
+   V15 - BLACKJACK · 21
+   레퍼런스 이미지 기반 다크 그린 카지노 UI
+========================================================= */
+
+#casinoViewBlackjack {
+  --bj-bg: #0f4d3d;
+  --bj-panel: #155b49;
+  --bj-panel-2: #195f4d;
+  --bj-line: rgba(255,255,255,.14);
+  --bj-yellow: #e5cb43;
+  --bj-blue: #5660d9;
+  --bj-text: #f4fffb;
+  --bj-muted: #b9ddd1;
+}
+
+.blackjack-v15 {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 24px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(62,172,136,.14), transparent 32%),
+    linear-gradient(145deg,#10503f,#0c4537 70%,#0b4033);
+  color: var(--bj-text);
+  box-shadow:
+    0 18px 40px rgba(20,68,56,.16),
+    inset 0 0 0 1px rgba(255,255,255,.025);
+}
+
+.blackjack-v15-head h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 1000;
+  letter-spacing: .2px;
+}
+
+.blackjack-v15-head p {
+  margin: 10px 0 0;
+  color: #c6ece0;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.65;
+}
+
+.blackjack-balance {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 12px;
+  padding: 12px 15px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+  color: #eafff8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.blackjack-balance strong {
+  font-size: 13px;
+  color: #fff;
+}
+
+.blackjack-bet-box {
+  transition: opacity .18s ease, filter .18s ease;
+}
+
+.blackjack-bet-box > label {
+  display: block;
+  margin-bottom: 5px;
+  color: #e8fff8;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.blackjack-bet-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+}
+
+.blackjack-bet-main input {
+  width: 100%;
+  height: 42px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+  color: #172d27;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.blackjack-allin {
+  min-width: 112px;
+  border: 0;
+  border-radius: 10px;
+  background: #f5f2ff;
+  color: #655d86;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.blackjack-quick-bets {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 7px;
+  margin: 9px 0 10px;
+}
+
+.blackjack-quick-bets button {
+  min-height: 34px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 9px;
+  background: rgba(255,255,255,.09);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.blackjack-quick-bets button:hover {
+  background: rgba(255,255,255,.15);
+}
+
+.blackjack-deal-button {
+  width: 100%;
+  min-height: 43px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg,#5761df,#5a5bd4);
+  color: white;
+  font-size: 11px;
+  font-weight: 1000;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(36,39,136,.16);
+}
+
+.blackjack-deal-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.blackjack-bet-box.round-active .blackjack-bet-main,
+.blackjack-bet-box.round-active .blackjack-quick-bets {
+  opacity: .48;
+  pointer-events: none;
+}
+
+.blackjack-streak {
+  margin: 11px 0;
+  color: #ffd858;
+  font-size: 10px;
+  font-weight: 1000;
+  text-align: center;
+}
+
+.blackjack-table-v15 {
+  min-height: 310px;
+  padding: 14px 18px;
+  border: 1px solid var(--bj-yellow);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(31,111,88,.22),transparent 62%),
+    linear-gradient(145deg,#155c49,#0d4a3a);
+  box-shadow: inset 0 0 30px rgba(0,0,0,.06);
+}
+
+.blackjack-hand-zone {
+  min-height: 128px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.blackjack-zone-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: white;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.blackjack-help {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,.25);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 1000;
+  cursor: help;
+}
+
+.blackjack-score-badge {
+  min-width: 22px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.28);
+  color: white;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.blackjack-table-divider {
+  width: 88%;
+  height: 1px;
+  margin: 5px auto 12px;
+  background: rgba(255,255,255,.18);
+}
+
+.playing-cards-v15 {
+  min-height: 86px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.playing-card-v15 {
+  position: relative;
+  width: 58px;
+  height: 82px;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.13);
+  border-radius: 8px;
+  background: linear-gradient(150deg,#fff,#f4f4f4);
+  color: #172a24;
+  box-shadow: 0 5px 12px rgba(0,0,0,.16);
+  transform-origin: 50% 120%;
+  animation: blackjackDealCard .38s cubic-bezier(.18,.86,.25,1.14) calc(var(--deal-index) * 70ms) both;
+}
+
+.playing-card-v15.red {
+  color: #cf3f50;
+}
+
+.playing-card-v15.back {
+  display: grid;
+  place-items: center;
+  background:
+    repeating-linear-gradient(45deg,rgba(255,255,255,.12) 0 5px,transparent 5px 10px),
+    linear-gradient(135deg,#4854c4,#6c76e4);
+  border: 3px solid white;
+  color: white;
+}
+
+.card-back-pattern {
+  width: 32px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: .9;
+  font-style: normal;
+}
+
+.card-corner b {
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.card-corner i {
+  margin-top: 2px;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.card-corner.top {
+  left: 6px;
+  top: 5px;
+}
+
+.card-corner.bottom {
+  right: 6px;
+  bottom: 5px;
+  transform: rotate(180deg);
+}
+
+.card-suit-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 25px;
+  opacity: .9;
+}
+
+.blackjack-actions {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.blackjack-actions button {
+  min-height: 43px;
+  border: 0;
+  border-radius: 10px;
+  background: #36599a;
+  color: white;
+  font-size: 11px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.blackjack-actions button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.blackjack-actions button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.blackjack-result-v15 {
+  min-height: 49px;
+  display: grid;
+  place-items: center;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 11px;
+  background: rgba(255,255,255,.08);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 1000;
+  text-align: center;
+  line-height: 1.55;
+}
+
+.blackjack-rule-note {
+  margin-top: 10px;
+  color: #bce0d4;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+@keyframes blackjackDealCard {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) rotate(-5deg) scale(.85);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(3px) rotate(1deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0) scale(1);
+  }
+}
+
+@media (max-width: 620px) {
+  .blackjack-v15 {
+    padding: 16px 12px;
+    border-radius: 18px;
+  }
+
+  .blackjack-bet-main {
+    grid-template-columns: 1fr 104px;
+  }
+
+  .blackjack-quick-bets {
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  .blackjack-table-v15 {
+    min-height: 290px;
+    padding: 13px 8px;
+  }
+
+  .playing-card-v15 {
+    width: 52px;
+    height: 74px;
+  }
+
+  .blackjack-actions {
+    gap: 6px;
+  }
+
+  .blackjack-actions button {
+    min-height: 42px;
+    font-size: 9px;
+  }
+
+  .blackjack-rule-note {
+    font-size: 7px;
+  }
+}

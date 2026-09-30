@@ -4623,44 +4623,124 @@ function createDeck(){
 }
 function cardValue(card){if(["J","Q","K"].includes(card.rank))return 10;if(card.rank==="A")return 11;return Number(card.rank);}
 function handScore(hand){let total=hand.reduce((s,c)=>s+cardValue(c),0),aces=hand.filter((c)=>c.rank==="A").length;while(total>21&&aces>0){total-=10;aces--;}return total;}
-function cardHTML(card,hidden=false){if(hidden)return `<span class="playing-card back">?</span>`;return `<span class="playing-card ${["♥","♦"].includes(card.suit)?"red":""}">${card.rank}${card.suit}</span>`;}
+function cardHTML(card,hidden=false,index=0){
+  if(hidden){
+    return `<span class="playing-card-v15 back" style="--deal-index:${index}">
+      <span class="card-back-pattern">✦</span>
+    </span>`;
+  }
+  const red=["♥","♦"].includes(card.suit);
+  return `<span class="playing-card-v15 ${red?"red":""}" style="--deal-index:${index}">
+    <span class="card-corner top"><b>${card.rank}</b><i>${card.suit}</i></span>
+    <span class="card-suit-center">${card.suit}</span>
+    <span class="card-corner bottom"><b>${card.rank}</b><i>${card.suit}</i></span>
+  </span>`;
+}
 
 function startBlackjack(){
-  const bet=validatedBet("blackjackBetInput",2.5);if(!bet)return;
-  spendPoints(bet);const deck=createDeck();
-  saveData.blackjackPending={bet,deck,player:[deck.pop(),deck.pop()],dealer:[deck.pop(),deck.pop()],finished:false,doubled:false};saveGame();renderBlackjack();
+  const bet=validatedBet("blackjackBetInput",2.5);
+  if(!bet)return;
+
+  spendPoints(bet);
+  const deck=createDeck();
+
+  saveData.blackjackPending={
+    bet,
+    originalBet:bet,
+    deck,
+    player:[deck.pop(),deck.pop()],
+    dealer:[deck.pop(),deck.pop()],
+    finished:false,
+    doubled:false,
+    resultType:null
+  };
+  saveGame();
+  renderBlackjack();
+
   const p=saveData.blackjackPending;
-  if(handScore(p.player)===21){
-    if(handScore(p.dealer)===21) finishBlackjackRound("push");
-    else finishBlackjackRound("player_blackjack");
-  }
+  const playerNatural=handScore(p.player)===21;
+  const dealerNatural=handScore(p.dealer)===21;
+
+  if(playerNatural&&dealerNatural) finishBlackjackRound("push");
+  else if(playerNatural) finishBlackjackRound("player_blackjack");
+  else if(dealerNatural) finishBlackjackRound("dealer_blackjack");
 }
 function renderBlackjack(){
   const p=saveData.blackjackPending;
-  document.getElementById("blackjackStreakText").textContent=`연승 ${saveData.blackjackStreak||0}`;
-  const actions=document.getElementById("blackjackActions"),betRow=document.getElementById("blackjackBetRow");
+  const streak=saveData.blackjackStreak||0;
+
+  const pointEl=document.getElementById("blackjackPointDisplay");
+  if(pointEl)pointEl.textContent=`${formatPoints(saveData.points)} P`;
+
+  const streakEl=document.getElementById("blackjackStreakText");
+  if(streakEl)streakEl.textContent=`🔥 현재 ${streak}연승`;
+
+  const actions=document.getElementById("blackjackActions");
+  const betRow=document.getElementById("blackjackBetRow");
+  const dealButton=document.getElementById("blackjackDealButton");
+
   if(!p){
     document.getElementById("dealerCards").innerHTML="";
     document.getElementById("playerCards").innerHTML="";
-    document.getElementById("dealerScore").textContent="?";document.getElementById("playerScore").textContent="0";
-    actions?.classList.add("hidden");betRow?.classList.remove("hidden");
-    if(saveData.blackjackRecent)document.getElementById("blackjackResult").textContent=saveData.blackjackRecent;
+    document.getElementById("dealerScore").textContent="?";
+    document.getElementById("playerScore").textContent="0";
+    actions?.classList.add("hidden");
+    betRow?.classList.remove("round-active");
+    betRow?.classList.remove("round-finished");
+    if(dealButton){
+      dealButton.disabled=false;
+      dealButton.textContent="🃏 카드 받기";
+    }
+    document.getElementById("blackjackResult").textContent=
+      saveData.blackjackRecent||"배팅금을 정하고 카드 받기를 눌러 주세요.";
     return;
   }
-  document.getElementById("dealerCards").innerHTML=p.dealer.map((c,i)=>cardHTML(c,!p.finished&&i===1)).join("");
-  document.getElementById("playerCards").innerHTML=p.player.map((c)=>cardHTML(c)).join("");
-  document.getElementById("dealerScore").textContent=p.finished?handScore(p.dealer):cardValue(p.dealer[0]);
+
+  const hideDealerHole=!p.finished;
+  document.getElementById("dealerCards").innerHTML=
+    p.dealer.map((c,i)=>cardHTML(c,hideDealerHole&&i===1,i)).join("");
+  document.getElementById("playerCards").innerHTML=
+    p.player.map((c,i)=>cardHTML(c,false,i)).join("");
+
+  document.getElementById("dealerScore").textContent=
+    p.finished?handScore(p.dealer):cardValue(p.dealer[0]);
   document.getElementById("playerScore").textContent=handScore(p.player);
-  actions?.class.toggle("hidden",p.finished);betRow?.class.toggle("hidden",!p.finished);
-  if(!p.finished){
-    document.getElementById("blackjackDoubleButton").disabled=p.player.length!==2||saveData.points<p.bet;
-    document.getElementById("blackjackResult").textContent=`배팅 ${formatPoints(p.bet)}P · HIT / STAND / DOUBLE`;
+
+  if(p.finished){
+    actions?.classList.add("hidden");
+    betRow?.classList.remove("round-active");
+    betRow?.classList.add("round-finished");
+    if(dealButton){
+      dealButton.disabled=false;
+      dealButton.textContent="🃏 다시 카드 받기";
+    }
+  }else{
+    actions?.classList.remove("hidden");
+    betRow?.classList.add("round-active");
+    betRow?.classList.remove("round-finished");
+    if(dealButton){
+      dealButton.disabled=true;
+      dealButton.textContent="진행 중";
+    }
+
+    const doubleButton=document.getElementById("blackjackDoubleButton");
+    if(doubleButton)doubleButton.disabled=p.player.length!==2||saveData.points<p.bet;
+
+    document.getElementById("blackjackResult").textContent=
+      `배팅 ${formatPoints(p.bet)}P · 현재 ${handScore(p.player)} · HIT / STAND / DOUBLE`;
   }
 }
 function blackjackHit(){
-  const p=saveData.blackjackPending;if(!p||p.finished)return;
-  p.player.push(p.deck.pop());saveGame();renderBlackjack();
-  if(handScore(p.player)>21)finishBlackjackRound("player_bust");
+  const p=saveData.blackjackPending;
+  if(!p||p.finished)return;
+
+  p.player.push(p.deck.pop());
+  saveGame();
+  renderBlackjack();
+
+  const score=handScore(p.player);
+  if(score>21)finishBlackjackRound("player_bust");
+  else if(score===21)setTimeout(()=>blackjackStand(),260);
 }
 function blackjackStand(){
   const p=saveData.blackjackPending;if(!p||p.finished)return;
@@ -4671,29 +4751,78 @@ function blackjackStand(){
   else finishBlackjackRound("lose");
 }
 function blackjackDouble(){
-  const p=saveData.blackjackPending;if(!p||p.finished||p.player.length!==2||saveData.points<p.bet)return;
-  spendPoints(p.bet);p.bet*=2;p.doubled=true;p.player.push(p.deck.pop());saveGame();
-  if(handScore(p.player)>21)finishBlackjackRound("player_bust");else blackjackStand();
+  const p=saveData.blackjackPending;
+  if(!p||p.finished||p.player.length!==2||saveData.points<p.bet)return;
+
+  spendPoints(p.bet);
+  p.bet*=2;
+  p.doubled=true;
+  p.player.push(p.deck.pop());
+  saveGame();
+  renderBlackjack();
+
+  if(handScore(p.player)>21)finishBlackjackRound("player_bust");
+  else setTimeout(()=>blackjackStand(),260);
 }
 function finishBlackjackRound(type){
-  const p=saveData.blackjackPending;if(!p)return;
+  const p=saveData.blackjackPending;
+  if(!p||p.finished)return;
+
   p.finished=true;
-  let payout=0,label="";
-  if(type==="player_blackjack"){payout=Math.floor(p.bet*2.5);label="NATURAL BLACKJACK!";saveData.blackjackStreak=(saveData.blackjackStreak||0)+1;}
-  else if(type==="win"){payout=p.bet*2;label="승리!";saveData.blackjackStreak=(saveData.blackjackStreak||0)+1;}
-  else if(type==="push"){payout=p.bet;label="PUSH"; }
-  else {label=type==="player_bust"?"BUST":"패배";saveData.blackjackStreak=0;}
+  p.resultType=type;
+
+  let payout=0;
+  let label="";
+  let detail="";
+
+  if(type==="player_blackjack"){
+    payout=Math.floor(p.bet*2.5);
+    label="BLACKJACK!";
+    detail="첫 2장 21 · 2.5배 지급";
+    saveData.blackjackStreak=(saveData.blackjackStreak||0)+1;
+  }else if(type==="win"){
+    payout=p.bet*2;
+    label="승리!";
+    detail="일반 승리 · 2배 지급";
+    saveData.blackjackStreak=(saveData.blackjackStreak||0)+1;
+  }else if(type==="push"){
+    payout=p.bet;
+    label="PUSH";
+    detail="무승부 · 원금 반환";
+  }else if(type==="dealer_blackjack"){
+    label="DEALER BLACKJACK";
+    detail="딜러의 첫 2장이 21이에요.";
+    saveData.blackjackStreak=0;
+  }else if(type==="player_bust"){
+    label="BUST";
+    detail="21을 초과했어요.";
+    saveData.blackjackStreak=0;
+  }else{
+    label="패배";
+    detail="딜러의 합이 더 높아요.";
+    saveData.blackjackStreak=0;
+  }
+
   if(payout)addPoints(payout);
-  const text=`${label} · ${payout?`${formatPoints(payout)}P 반환`:"0P"}`;
-  saveData.blackjackRecent=text;saveGame();renderBlackjack();
+
+  const ps=handScore(p.player);
+  const ds=handScore(p.dealer);
+  const text=`${label} · YOU ${ps} / DEALER ${ds} · ${detail}${payout?` · ${formatPoints(payout)}P 지급`:""}`;
+
+  saveData.blackjackRecent=text;
+  saveGame();
+  renderBlackjack();
   document.getElementById("blackjackResult").textContent=text;
-  setTimeout(()=>{saveData.blackjackPending=null;saveGame();renderBlackjack();},900);
 }
 document.getElementById("blackjackDealButton")?.addEventListener("click",startBlackjack);
 document.getElementById("blackjackHitButton")?.addEventListener("click",blackjackHit);
 document.getElementById("blackjackStandButton")?.addEventListener("click",blackjackStand);
 document.getElementById("blackjackDoubleButton")?.addEventListener("click",blackjackDouble);
-document.querySelectorAll("[data-bj-bet]").forEach((button)=>button.addEventListener("click",()=>{document.getElementById("blackjackBetInput").value=button.dataset.bjBet;}));
+document.querySelectorAll("[data-bj-bet]").forEach((button)=>button.addEventListener("click",()=>{
+  const requested=Math.max(1,Math.floor(Number(button.dataset.bjBet)||1));
+  const input=document.getElementById("blackjackBetInput");
+  if(input)input.value=Math.min(requested,Math.max(1,saveData.points));
+}));
 
 /* =========================================================
    NULL DERBY
