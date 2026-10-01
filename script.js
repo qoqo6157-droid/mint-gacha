@@ -3161,24 +3161,136 @@ function createDetectiveCase({ keepTheme = false, keepCulprit = false } = {}) {
   renderDetectiveGame();
 }
 
+let detectiveConfirmAction = null;
+
+function openDetectiveConfirm({
+  title = "확인",
+  message = "",
+  icon = "📁",
+  okText = "진행",
+  action = null
+} = {}) {
+  detectiveConfirmAction = typeof action === "function" ? action : null;
+
+  const overlay = document.getElementById("detectiveConfirmOverlay");
+  const titleEl = document.getElementById("detectiveConfirmTitle");
+  const messageEl = document.getElementById("detectiveConfirmMessage");
+  const iconEl = document.getElementById("detectiveConfirmIcon");
+  const ok = document.getElementById("detectiveConfirmOk");
+
+  if (titleEl) titleEl.textContent = title;
+  if (messageEl) messageEl.textContent = message;
+  if (iconEl) iconEl.textContent = icon;
+  if (ok) ok.textContent = okText;
+
+  overlay?.classList.remove("hidden");
+  overlay?.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeDetectiveConfirm() {
+  const overlay = document.getElementById("detectiveConfirmOverlay");
+  overlay?.classList.add("hidden");
+  overlay?.setAttribute("aria-hidden", "true");
+  detectiveConfirmAction = null;
+
+  if (!document.querySelector(".modal-backdrop:not(.hidden), .detective-overlay:not(.hidden)")) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+function confirmDetectiveAction() {
+  const action = detectiveConfirmAction;
+  closeDetectiveConfirm();
+  if (action) action();
+}
+
+function closeDetectiveInterrogation() {
+  const overlay = document.getElementById("detectiveInterrogationOverlay");
+  overlay?.classList.add("hidden");
+  overlay?.setAttribute("aria-hidden", "true");
+
+  if (!document.querySelector(".modal-backdrop:not(.hidden), .detective-overlay:not(.hidden)")) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+function openDetectiveInterrogation(suspect, statement, state) {
+  const overlay = document.getElementById("detectiveInterrogationOverlay");
+  const avatar = document.getElementById("detectiveInterrogationAvatar");
+  const name = document.getElementById("detectiveInterrogationName");
+  const role = document.getElementById("detectiveInterrogationRole");
+  const code = document.getElementById("detectiveInterrogationCode");
+  const trait = document.getElementById("detectiveInterrogationTrait");
+  const alibi = document.getElementById("detectiveInterrogationAlibi");
+  const suspicious = document.getElementById("detectiveInterrogationSuspicious");
+  const compare = document.getElementById("detectiveInterrogationCompare");
+  const compareText = document.getElementById("detectiveInterrogationCompareText");
+
+  if (!overlay || !suspect || !statement) return;
+
+  if (avatar) avatar.textContent = suspect.name.slice(-1);
+  if (name) name.textContent = suspect.name;
+  if (role) role.textContent = suspect.role;
+  if (code) code.textContent = suspect.code;
+  if (trait) trait.textContent = suspect.trait;
+  if (alibi) alibi.textContent = statement.alibi;
+  if (suspicious) suspicious.textContent = statement.suspicious;
+
+  const hasAccess = state?.discoveredEvidence?.includes("access");
+  const accessMatch = hasAccess && detectiveEvidenceById("access", state)?.detail.includes(suspect.code);
+
+  if (compare && compareText) {
+    compare.classList.toggle("hidden", !hasAccess);
+    compare.classList.toggle("match", Boolean(accessMatch));
+    compareText.textContent = hasAccess
+      ? `${suspect.code} · ${accessMatch ? "확보한 출입 인증 기록과 일치" : "확보 기록과 직접 일치 없음"}`
+      : "";
+  }
+
+  overlay.classList.remove("hidden");
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+
+  const dialog = overlay.querySelector(".detective-dialog");
+  dialog?.classList.remove("dialog-pop");
+  void dialog?.offsetWidth;
+  dialog?.classList.add("dialog-pop");
+}
+
 function requestNewDetectiveCase() {
   const current = detectiveCurrent();
+
   if (current && !current.solved) {
     const progress = detectiveProgress(current);
     const touched = progress.evidence > 0 || progress.interviews > 0 || progress.deductions > 0 || current.wrongAttempts > 0;
-    const message = touched
-      ? "현재 진행 중인 수사 기록을 버리고 새 사건을 배정받을까요?"
-      : "현재 사건을 버리고 다른 새 사건을 배정받을까요?";
-    if (!confirm(message)) return;
+
+    openDetectiveConfirm({
+      title: "새 사건을 배정할까요?",
+      message: touched
+        ? "현재 진행 중인 수사 기록은 사라집니다. 확보한 증거와 진술, 추리 기록을 버리고 새로운 사건을 시작할까요?"
+        : "현재 사건을 내려놓고 다른 사건을 새로 배정받을까요?",
+      icon: "📁",
+      okText: "새 사건 배정",
+      action: () => createDetectiveCase()
+    });
+    return;
   }
+
   createDetectiveCase();
 }
 
 function resetDetectiveCase() {
   const current = detectiveCurrent();
   if (!current) return;
-  if (!confirm("같은 사건의 조사 기록을 처음부터 다시 시작할까요? 범인과 사건 테마는 유지됩니다.")) return;
-  createDetectiveCase({ keepTheme: true, keepCulprit: true });
+
+  openDetectiveConfirm({
+    title: "현재 사건을 초기화할까요?",
+    message: "같은 사건과 같은 진범은 유지되지만, 현장 조사 · 용의자 심문 · 증거 연결 · 오답 기록이 처음 상태로 돌아갑니다.",
+    icon: "↻",
+    okText: "조사 기록 초기화",
+    action: () => createDetectiveCase({ keepTheme: true, keepCulprit: true })
+  });
 }
 
 function detectiveCaseAssignmentFx() {
@@ -3532,8 +3644,8 @@ function renderDetectiveSuspects(state, theme) {
               </div>` : ""}
           ` : `<p class="detective-suspect-locked">질문을 시작하면 알리바이와 인증 코드, 개인 특징이 공개됩니다.</p>`}
         </div>
-        <button class="${interviewed ? "white-button" : "mint-button"}" data-detective-interview="${escapeHTML(suspect.id)}" ${state.solved ? "disabled" : ""}>
-          ${interviewed ? "💬 진술 다시 보기" : "👤 심문하기"}
+        <button class="${interviewed ? "white-button" : "mint-button"}" data-detective-interview="${escapeHTML(suspect.id)}" ${state.solved && !interviewed ? "disabled" : ""}>
+          ${interviewed ? "💬 진술 기록 보기" : "👤 심문하기"}
         </button>
       </article>`;
   }).join("");
@@ -3546,23 +3658,21 @@ function renderDetectiveSuspects(state, theme) {
 function interrogateDetectiveSuspect(suspectId) {
   const state = detectiveCurrent();
   const theme = detectiveTheme(state);
-  if (!state || !theme || state.solved) return;
+  if (!state || !theme) return;
+
   const suspect = theme.suspects.find((s) => s.id === suspectId);
   if (!suspect) return;
 
   const already = state.interviews.includes(suspectId);
-  if (!already) {
+
+  if (!already && !state.solved) {
     state.interviews.push(suspectId);
     saveDetectiveProgress("용의자 심문");
     renderDetectiveGame();
   }
 
   const statement = detectiveSuspectStatement(suspect, state, theme);
-  const access = state.discoveredEvidence.includes("access")
-    ? `\n\n🔐 출입 기록 비교\n${suspect.code}${detectiveEvidenceById("access", state)?.detail.includes(suspect.code) ? " · 확보한 기록과 일치" : " · 직접 일치 없음"}`
-    : "";
-
-  alert(`👤 ${suspect.name} / ${suspect.role}\n\n인증 코드: ${suspect.code}\n개인 특징: ${suspect.trait}\n\n알리바이\n${statement.alibi}\n\n수상한 정황\n${statement.suspicious}${access}`);
+  openDetectiveInterrogation(suspect, statement, state);
 }
 
 function renderDetectiveBoard(state) {
@@ -3825,6 +3935,27 @@ document.getElementById("detectiveSceneReportBoardButton")?.addEventListener("cl
   detectiveSetTab("board");
   document.getElementById("detectiveEvidenceGrid")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
+document.getElementById("detectiveInterrogationClose")?.addEventListener("click", closeDetectiveInterrogation);
+document.getElementById("detectiveInterrogationConfirm")?.addEventListener("click", closeDetectiveInterrogation);
+document.getElementById("detectiveConfirmCancel")?.addEventListener("click", closeDetectiveConfirm);
+document.getElementById("detectiveConfirmOk")?.addEventListener("click", confirmDetectiveAction);
+
+document.getElementById("detectiveInterrogationOverlay")?.addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeDetectiveInterrogation();
+});
+document.getElementById("detectiveConfirmOverlay")?.addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeDetectiveConfirm();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!document.getElementById("detectiveInterrogationOverlay")?.classList.contains("hidden")) {
+    closeDetectiveInterrogation();
+  } else if (!document.getElementById("detectiveConfirmOverlay")?.classList.contains("hidden")) {
+    closeDetectiveConfirm();
+  }
+});
+
 
 document.querySelectorAll("[data-detective-tab]").forEach((button) => {
   button.addEventListener("click", () => detectiveSetTab(button.dataset.detectiveTab));

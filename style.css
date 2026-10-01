@@ -7507,3 +7507,254 @@ body.gacha-cinematic-open {
     animation-duration: .01ms !important;
   }
 }
+
+
+/* =========================================================
+   V33 - 탐정게임 브라우저 기본 팝업 제거
+========================================================= */
+
+.detective-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(22,47,40,.42);
+  backdrop-filter: blur(7px);
+}
+
+.detective-dialog {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  padding: 23px;
+  border: 1px solid #cfe4dc;
+  border-radius: 22px;
+  background:
+    linear-gradient(rgba(46,100,83,.025) 1px, transparent 1px),
+    linear-gradient(90deg,rgba(46,100,83,.025) 1px,transparent 1px),
+    #fffefa;
+  background-size: 22px 22px;
+  box-shadow: 0 28px 80px rgba(19,57,47,.25);
+}
+
+.detective-dialog.dialog-pop {
+  animation: detectiveDialogPop .28s cubic-bezier(.18,.86,.25,1.12);
+}
+
+.detective-dialog-close {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d7e6e0;
+  border-radius: 50%;
+  background: white;
+  color: #748b82;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.detective-dialog-kicker {
+  color: #31a17d;
+  font-size: 7px;
+  font-weight: 1000;
+  letter-spacing: 1.4px;
+}
+
+.detective-interrogation-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 46px 15px 0;
+}
+
+.detective-interrogation-avatar {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #cfe2db;
+  border-radius: 50%;
+  background: linear-gradient(145deg,#edf7f3,#fff);
+  color: #52776a;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.detective-interrogation-head h4 {
+  margin: 0;
+  color: #324f46;
+  font-size: 22px;
+  font-weight: 1000;
+  letter-spacing: -.6px;
+}
+
+.detective-interrogation-head p {
+  margin: 3px 0 0;
+  color: #82968f;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.detective-interrogation-meta {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.detective-interrogation-meta > div {
+  padding: 10px 11px;
+  border: 1px solid #e0e9e6;
+  border-radius: 11px;
+  background: rgba(249,252,251,.9);
+}
+
+.detective-interrogation-meta span,
+.detective-interrogation-section > span,
+.detective-interrogation-compare > span {
+  display: block;
+  margin-bottom: 4px;
+  color: #81958d;
+  font-size: 7px;
+  font-weight: 1000;
+  letter-spacing: .5px;
+}
+
+.detective-interrogation-meta strong {
+  color: #465f56;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.detective-interrogation-section {
+  margin-top: 9px;
+  padding: 13px 14px;
+  border-left: 4px solid #62c5a5;
+  border-radius: 5px 12px 12px 5px;
+  background: #f3fbf8;
+}
+
+.detective-interrogation-section.suspicious {
+  border-left-color: #d37b82;
+  background: #fff7f7;
+}
+
+.detective-interrogation-section p {
+  margin: 0;
+  color: #536c63;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.72;
+}
+
+.detective-interrogation-compare {
+  margin-top: 10px;
+  padding: 11px 13px;
+  border: 1px solid #dce8e4;
+  border-radius: 11px;
+  background: #f4f8f7;
+}
+
+.detective-interrogation-compare strong {
+  color: #657d74;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.detective-interrogation-compare.match {
+  border-color: #efc7cb;
+  background: #fff2f3;
+}
+
+.detective-interrogation-compare.match strong {
+  color: #b85e67;
+}
+
+.detective-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.detective-dialog-actions.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.detective-dialog-actions button {
+  min-width: 130px;
+}
+
+.detective-confirm-dialog {
+  width: min(430px,100%);
+  text-align: center;
+}
+
+.detective-confirm-icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 11px;
+  border-radius: 50%;
+  background: linear-gradient(145deg,#e7faf4,#f8fffc);
+  font-size: 30px;
+  box-shadow: inset 0 0 0 1px #d5ebe3;
+}
+
+.detective-confirm-dialog h4 {
+  margin: 8px 0 7px;
+  color: #345248;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.detective-confirm-dialog > p {
+  margin: 0;
+  color: #748a82;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.65;
+}
+
+@keyframes detectiveDialogPop {
+  0% { opacity: .4; transform: translateY(8px) scale(.975); }
+  65% { opacity: 1; transform: translateY(-2px) scale(1.008); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 620px) {
+  .detective-dialog {
+    padding: 18px 14px;
+    border-radius: 17px;
+  }
+
+  .detective-interrogation-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .detective-dialog-actions,
+  .detective-dialog-actions.two {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .detective-dialog-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detective-dialog.dialog-pop {
+    animation-duration: .01ms !important;
+  }
+}

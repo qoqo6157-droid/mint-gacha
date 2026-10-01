@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=33">
 </head>
 <body>
   <header>
@@ -775,6 +775,58 @@
                 </div>
               </div>
             </section>
+          </div>
+
+          <div class="detective-overlay hidden" id="detectiveInterrogationOverlay" aria-hidden="true">
+            <div class="detective-dialog detective-interrogation-dialog" role="dialog" aria-modal="true" aria-labelledby="detectiveInterrogationName">
+              <button type="button" class="detective-dialog-close" id="detectiveInterrogationClose" aria-label="심문 기록 닫기">×</button>
+
+              <div class="detective-dialog-kicker">INTERROGATION RECORD</div>
+              <div class="detective-interrogation-head">
+                <div class="detective-interrogation-avatar" id="detectiveInterrogationAvatar">?</div>
+                <div>
+                  <h4 id="detectiveInterrogationName">용의자</h4>
+                  <p id="detectiveInterrogationRole">역할</p>
+                </div>
+              </div>
+
+              <div class="detective-interrogation-meta">
+                <div><span>인증 코드</span><strong id="detectiveInterrogationCode">-</strong></div>
+                <div><span>개인 특징</span><strong id="detectiveInterrogationTrait">-</strong></div>
+              </div>
+
+              <div class="detective-interrogation-section">
+                <span>ALIBI · 알리바이</span>
+                <p id="detectiveInterrogationAlibi"></p>
+              </div>
+
+              <div class="detective-interrogation-section suspicious">
+                <span>SUSPICIOUS POINT · 수상한 정황</span>
+                <p id="detectiveInterrogationSuspicious"></p>
+              </div>
+
+              <div class="detective-interrogation-compare hidden" id="detectiveInterrogationCompare">
+                <span>🔐 ACCESS LOG COMPARE</span>
+                <strong id="detectiveInterrogationCompareText"></strong>
+              </div>
+
+              <div class="detective-dialog-actions">
+                <button type="button" class="mint-button" id="detectiveInterrogationConfirm">기록 확인 완료</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="detective-overlay hidden" id="detectiveConfirmOverlay" aria-hidden="true">
+            <div class="detective-dialog detective-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="detectiveConfirmTitle">
+              <div class="detective-confirm-icon" id="detectiveConfirmIcon">📁</div>
+              <div class="detective-dialog-kicker">CASE FILE ACTION</div>
+              <h4 id="detectiveConfirmTitle">확인</h4>
+              <p id="detectiveConfirmMessage"></p>
+              <div class="detective-dialog-actions two">
+                <button type="button" class="white-button" id="detectiveConfirmCancel">취소</button>
+                <button type="button" class="mint-button" id="detectiveConfirmOk">진행</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1683,6 +1735,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=32"></script>
+  <script src="script.js?v=33"></script>
 </body>
 </html>
