@@ -3152,6 +3152,7 @@ function createDetectiveCase({ keepTheme = false, keepCulprit = false } = {}) {
     solved: false,
     reward: 0,
     activeTab: "overview",
+    sceneReport: null,
     createdAt: Date.now()
   };
 
@@ -3289,6 +3290,129 @@ function renderDetectiveOverview(state, theme) {
   }
 }
 
+function detectiveSceneReportData(state = detectiveCurrent()) {
+  if (!state?.sceneReport) return null;
+
+  const theme = detectiveTheme(state);
+  if (!theme) return null;
+
+  const place = theme.places.find((p) => p.id === state.sceneReport.placeId);
+  if (!place) return null;
+
+  const ids = Array.isArray(state.sceneReport.evidenceIds)
+    ? state.sceneReport.evidenceIds.filter((id) => state.discoveredEvidence.includes(id))
+    : [];
+
+  const evidence = ids.map((id) => detectiveEvidenceById(id, state)).filter(Boolean);
+  if (!evidence.length) return null;
+
+  return {
+    mode: state.sceneReport.mode === "review" ? "review" : "new",
+    place,
+    evidence
+  };
+}
+
+function renderDetectiveSceneReport(state) {
+  const panel = document.getElementById("detectiveSceneReport");
+  const badge = document.getElementById("detectiveSceneReportBadge");
+  const title = document.getElementById("detectiveSceneReportTitle");
+  const subtitle = document.getElementById("detectiveSceneReportSubtitle");
+  const body = document.getElementById("detectiveSceneReportBody");
+  const boardButton = document.getElementById("detectiveSceneReportBoardButton");
+  const continueButton = document.getElementById("detectiveSceneReportContinueButton");
+  if (!panel || !badge || !title || !subtitle || !body) return;
+
+  const report = detectiveSceneReportData(state);
+  panel.classList.toggle("hidden", !report);
+
+  if (!report) {
+    body.innerHTML = "";
+    return;
+  }
+
+  const isNew = report.mode === "new";
+  badge.textContent = isNew ? "NEW EVIDENCE" : "INVESTIGATION ARCHIVE";
+  badge.className = isNew ? "new" : "review";
+  title.textContent = isNew
+    ? `${report.place.name} · 새로운 단서 발견`
+    : `${report.place.name} · 조사 기록 다시 보기`;
+  subtitle.textContent = isNew
+    ? "방금 확보한 조사 내용을 확인하세요. 이 기록은 증거보드에도 자동으로 보관됩니다."
+    : `이 장소에서 확보한 ${report.evidence.length}개의 조사 기록을 다시 확인하고 있습니다.`;
+
+  body.innerHTML = report.evidence.map((e, index) => `
+    <article class="detective-scene-evidence-detail ${isNew && index === 0 ? "new" : ""}">
+      <div class="detective-scene-evidence-icon">${e.icon}</div>
+      <div class="detective-scene-evidence-content">
+        <div class="detective-scene-evidence-top">
+          <span>${escapeHTML(report.place.name)}</span>
+          <em>${isNew ? "증거 확보" : "확보 기록"}</em>
+        </div>
+        <h5>${escapeHTML(e.title)}</h5>
+        <p>${escapeHTML(e.detail)}</p>
+        <div class="detective-scene-evidence-summary">
+          <strong>수사 포인트</strong>
+          <span>${escapeHTML(e.short)}</span>
+        </div>
+      </div>
+    </article>
+  `).join("");
+
+  if (boardButton) boardButton.disabled = !report.evidence.length;
+  if (continueButton) continueButton.textContent = isNew ? "조사 계속하기" : "기록 확인 완료";
+}
+
+function openDetectiveSceneReport(placeId, evidenceIds, mode = "review", { save = true } = {}) {
+  const state = detectiveCurrent();
+  if (!state) return;
+
+  const ids = (Array.isArray(evidenceIds) ? evidenceIds : [evidenceIds])
+    .filter(Boolean)
+    .filter((id) => state.discoveredEvidence.includes(id));
+
+  if (!ids.length) return;
+
+  state.sceneReport = {
+    placeId,
+    evidenceIds: ids,
+    mode: mode === "new" ? "new" : "review",
+    openedAt: Date.now()
+  };
+  state.activeTab = "scene";
+
+  if (save) saveDetectiveProgress("현장 조사 기록 열람");
+  renderDetectiveGame();
+  detectiveSetTab("scene", { save: false });
+
+  requestAnimationFrame(() => {
+    const panel = document.getElementById("detectiveSceneReport");
+    if (!panel) return;
+    panel.classList.remove("report-pop");
+    void panel.offsetWidth;
+    panel.classList.add("report-pop");
+    panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => panel.classList.remove("report-pop"), 460);
+  });
+}
+
+function closeDetectiveSceneReport({ save = true } = {}) {
+  const state = detectiveCurrent();
+  if (!state) return;
+  state.sceneReport = null;
+  if (save) saveDetectiveProgress("현장 조사 기록 닫기");
+  renderDetectiveSceneReport(state);
+}
+
+function showDetectiveEvidenceDetail(evidenceId) {
+  const state = detectiveCurrent();
+  const theme = detectiveTheme(state);
+  if (!state || !theme || !state.discoveredEvidence.includes(evidenceId)) return;
+  const place = theme.places.find((p) => p.evidence.includes(evidenceId));
+  if (!place) return;
+  openDetectiveSceneReport(place.id, [evidenceId], "review");
+}
+
 function renderDetectiveLocations(state, theme) {
   const grid = document.getElementById("detectiveLocationGrid");
   if (!grid) return;
@@ -3297,7 +3421,7 @@ function renderDetectiveLocations(state, theme) {
   grid.innerHTML = theme.places.map((place) => {
     const found = place.evidence.filter((id) => state.discoveredEvidence.includes(id));
     const complete = found.length === place.evidence.length;
-    const nextId = place.evidence.find((id) => !state.discoveredEvidence.includes(id));
+
     return `
       <article class="detective-location-card ${complete ? "complete" : ""}">
         <div class="detective-location-icon">${place.icon}</div>
@@ -3311,13 +3435,13 @@ function renderDetectiveLocations(state, theme) {
             ${found.length
               ? found.map((id) => {
                   const e = evidenceList.find((item) => item.id === id);
-                  return `<span>✓ ${escapeHTML(e?.title || id)}</span>`;
+                  return `<button type="button" data-detective-evidence-detail="${escapeHTML(id)}">✓ ${escapeHTML(e?.title || id)}</button>`;
                 }).join("")
               : `<small>아직 발견한 증거가 없어요.</small>`}
           </div>
         </div>
-        <button class="${complete ? "white-button" : "mint-button"}" data-detective-investigate="${escapeHTML(place.id)}" ${state.solved ? "disabled" : ""}>
-          ${complete ? "📖 조사 내용 다시 보기" : `🔦 조사하기${nextId ? "" : ""}`}
+        <button class="${complete ? "white-button" : "mint-button"}" data-detective-investigate="${escapeHTML(place.id)}" ${state.solved && !complete ? "disabled" : ""}>
+          ${complete ? "📖 조사 기록 전체 보기" : "🔦 조사하기"}
         </button>
       </article>`;
   }).join("");
@@ -3325,29 +3449,56 @@ function renderDetectiveLocations(state, theme) {
   grid.querySelectorAll("[data-detective-investigate]").forEach((button) => {
     button.addEventListener("click", () => investigateDetectiveLocation(button.dataset.detectiveInvestigate));
   });
+
+  grid.querySelectorAll("[data-detective-evidence-detail]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      showDetectiveEvidenceDetail(button.dataset.detectiveEvidenceDetail);
+    });
+  });
 }
 
 function investigateDetectiveLocation(placeId) {
   const state = detectiveCurrent();
   const theme = detectiveTheme(state);
-  if (!state || !theme || state.solved) return;
+  if (!state || !theme) return;
+
   const place = theme.places.find((p) => p.id === placeId);
   if (!place) return;
 
   const remaining = place.evidence.filter((id) => !state.discoveredEvidence.includes(id));
-  if (remaining.length) {
+
+  if (remaining.length && !state.solved) {
     const id = remaining[0];
     state.discoveredEvidence.push(id);
-    const evidence = detectiveEvidenceById(id, state);
+    state.sceneReport = {
+      placeId: place.id,
+      evidenceIds: [id],
+      mode: "new",
+      openedAt: Date.now()
+    };
+    state.activeTab = "scene";
+
     saveDetectiveProgress("현장 증거 발견");
     renderDetectiveGame();
-    setMessage("detectiveBoardMessage", `🔎 ${place.name}에서 「${evidence?.title || "증거"}」을 확보했어요.`, "success");
     detectiveSetTab("scene", { save: false });
+
+    requestAnimationFrame(() => {
+      const panel = document.getElementById("detectiveSceneReport");
+      if (!panel) return;
+      panel.classList.remove("report-pop");
+      void panel.offsetWidth;
+      panel.classList.add("report-pop");
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => panel.classList.remove("report-pop"), 460);
+    });
     return;
   }
 
-  const found = place.evidence.map((id) => detectiveEvidenceById(id, state)).filter(Boolean);
-  alert(`📖 ${place.name} 조사 기록\n\n${found.map((e) => `• ${e.title}\n${e.detail}`).join("\n\n")}`);
+  const foundIds = place.evidence.filter((id) => state.discoveredEvidence.includes(id));
+  if (foundIds.length) {
+    openDetectiveSceneReport(place.id, foundIds, "review");
+  }
 }
 
 function renderDetectiveSuspects(state, theme) {
@@ -3654,6 +3805,7 @@ function renderDetectiveGame() {
   document.getElementById("detectiveProgressBar").style.width = `${state.solved ? 100 : progress.percent}%`;
 
   renderDetectiveOverview(state, theme);
+  renderDetectiveSceneReport(state);
   renderDetectiveLocations(state, theme);
   renderDetectiveSuspects(state, theme);
   renderDetectiveBoard(state);
@@ -3667,6 +3819,12 @@ document.getElementById("detectiveNextCaseButton")?.addEventListener("click", ()
 document.getElementById("detectiveResetCaseButton")?.addEventListener("click", resetDetectiveCase);
 document.getElementById("detectiveConnectEvidenceButton")?.addEventListener("click", connectDetectiveEvidence);
 document.getElementById("detectiveAccuseButton")?.addEventListener("click", submitDetectiveAccusation);
+document.getElementById("detectiveSceneReportClose")?.addEventListener("click", () => closeDetectiveSceneReport());
+document.getElementById("detectiveSceneReportContinueButton")?.addEventListener("click", () => closeDetectiveSceneReport());
+document.getElementById("detectiveSceneReportBoardButton")?.addEventListener("click", () => {
+  detectiveSetTab("board");
+  document.getElementById("detectiveEvidenceGrid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 document.querySelectorAll("[data-detective-tab]").forEach((button) => {
   button.addEventListener("click", () => detectiveSetTab(button.dataset.detectiveTab));
