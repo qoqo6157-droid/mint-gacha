@@ -87,6 +87,7 @@ let gachaSequence = {
 
 let collectionDetailCharacterId = null;
 let collectionDetailArtMode = "base";
+let collectionDetailDialogueIndex = 0;
 
 // V6 public/operation data
 let eventBanners = [];
@@ -1719,6 +1720,38 @@ function setCollectionDetailArtMode(mode) {
   if (collectionDetailCharacterId) renderCollectionDetail();
 }
 
+function collectionDetailDialogues(char) {
+  return Array.isArray(char?.dialogues)
+    ? char.dialogues.map((line) => String(line || "").trim()).filter(Boolean)
+    : [];
+}
+
+function setCollectionDetailDialogueIndex(char, index) {
+  const lines = collectionDetailDialogues(char);
+  if (!lines.length) {
+    collectionDetailDialogueIndex = 0;
+    return;
+  }
+  collectionDetailDialogueIndex = ((Number(index) || 0) % lines.length + lines.length) % lines.length;
+}
+
+function nextCollectionDetailDialogue() {
+  const char = characters.find((c) => c.id === collectionDetailCharacterId);
+  if (!char || getOwnedCount(char.id) <= 0) return;
+
+  const lines = collectionDetailDialogues(char);
+  if (!lines.length) return;
+
+  setCollectionDetailDialogueIndex(char, collectionDetailDialogueIndex + 1);
+  renderCollectionDetail();
+
+  const box = document.getElementById("collectionDetailDialogueBox");
+  box?.classList.remove("dialogue-pop");
+  void box?.offsetWidth;
+  box?.classList.add("dialogue-pop");
+  setTimeout(() => box?.classList.remove("dialogue-pop"), 300);
+}
+
 function renderCollectionDetail() {
   const id = collectionDetailCharacterId;
   const char = characters.find((c) => c.id === id);
@@ -1751,6 +1784,10 @@ function renderCollectionDetail() {
   const card = document.getElementById("collectionDetailCard");
   const artSwitch = document.getElementById("collectionArtSwitch");
   const fullArtSwitchText = document.getElementById("collectionFullArtSwitchText");
+  const dialogueBox = document.getElementById("collectionDetailDialogueBox");
+  const dialogueLine = document.getElementById("collectionDetailDialogueLine");
+  const dialogueCount = document.getElementById("collectionDetailDialogueCount");
+  const dialogueNext = document.getElementById("collectionDetailDialogueNext");
 
   if (name) name.textContent = locked ? "???" : char.name;
   if (rarity) {
@@ -1807,6 +1844,26 @@ function renderCollectionDetail() {
       : `<span>보유 ${owned}장</span><span>중복 ${duplicate}장</span>`;
   }
 
+  if (dialogueBox && dialogueLine && dialogueCount && dialogueNext) {
+    const lines = collectionDetailDialogues(char);
+    dialogueBox.classList.toggle("hidden", locked);
+
+    if (!locked) {
+      if (lines.length) {
+        setCollectionDetailDialogueIndex(char, collectionDetailDialogueIndex);
+        dialogueLine.textContent = `“${lines[collectionDetailDialogueIndex]}”`;
+        dialogueCount.textContent = `${collectionDetailDialogueIndex + 1} / ${lines.length}`;
+        dialogueNext.disabled = lines.length <= 1;
+        dialogueNext.textContent = lines.length <= 1 ? "💬 등록된 대사 1개" : "💬 다른 대사";
+      } else {
+        dialogueLine.textContent = "“등록된 대사가 없어요.”";
+        dialogueCount.textContent = "0 / 0";
+        dialogueNext.disabled = true;
+        dialogueNext.textContent = "💬 대사 없음";
+      }
+    }
+  }
+
   if (fullBadge) fullBadge.classList.toggle("hidden", lb !== 3);
   if (card) {
     card.classList.toggle("locked", locked);
@@ -1843,6 +1900,9 @@ function openCollectionDetail(id) {
   if (!char) return;
   collectionDetailCharacterId = id;
   collectionDetailArtMode = "base";
+
+  const dialogueLines = collectionDetailDialogues(char);
+  collectionDetailDialogueIndex = dialogueLines.length ? Math.floor(Math.random() * dialogueLines.length) : 0;
   renderCollectionDetail();
   document.getElementById("collectionDetailModal")?.classList.remove("hidden");
   document.body.classList.add("modal-open");
@@ -1852,6 +1912,7 @@ function closeCollectionDetail() {
   document.getElementById("collectionDetailModal")?.classList.add("hidden");
   collectionDetailCharacterId = null;
   collectionDetailArtMode = "base";
+  collectionDetailDialogueIndex = 0;
   if (document.querySelectorAll(".modal-backdrop:not(.hidden)").length === 0) {
     document.body.classList.remove("modal-open");
   }
@@ -1867,6 +1928,9 @@ document.querySelectorAll("[data-collection-art-mode]").forEach((button) => {
     setCollectionDetailArtMode(button.dataset.collectionArtMode);
   });
 });
+
+document.getElementById("collectionDetailDialogueNext")?.addEventListener("click", nextCollectionDetailDialogue);
+document.getElementById("collectionDetailDialogueLine")?.addEventListener("click", nextCollectionDetailDialogue);
 
 document.getElementById("collectionDetailLimitButton")?.addEventListener("click", () => {
   const id = document.getElementById("collectionDetailLimitButton")?.dataset.characterId;

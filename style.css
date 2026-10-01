@@ -7099,3 +7099,125 @@ body.gacha-cinematic-open {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* =========================================================
+   V31 - 도감 상세 캐릭터 대사
+========================================================= */
+
+.collection-detail-dialogue {
+  position: relative;
+  margin: 0 0 12px;
+  padding: 13px 14px 12px;
+  overflow: hidden;
+  border: 1px solid #d9ece5;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(79,206,165,.10), transparent 34%),
+    linear-gradient(145deg,#fbfffd,#f5fbf9);
+}
+
+.collection-detail-dialogue::before {
+  content: "“";
+  position: absolute;
+  right: 8px;
+  top: -18px;
+  color: rgba(51,180,140,.07);
+  font-family: Georgia, serif;
+  font-size: 100px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.collection-detail-dialogue-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.collection-detail-dialogue-head span {
+  color: #32a783;
+  font-size: 7px;
+  font-weight: 1000;
+  letter-spacing: 1.1px;
+}
+
+.collection-detail-dialogue-head small {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #e9f7f2;
+  color: #749087;
+  font-size: 7px;
+  font-weight: 1000;
+}
+
+.collection-detail-dialogue-line {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: #405f55;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.65;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collection-detail-dialogue-next {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid #d8eae4;
+  border-radius: 9px;
+  background: rgba(255,255,255,.88);
+  color: #4e8271;
+  font-size: 8px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.collection-detail-dialogue-next:hover:not(:disabled) {
+  border-color: #9cdec9;
+  background: #effff9;
+  color: #229a75;
+}
+
+.collection-detail-dialogue-next:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.collection-detail-dialogue.dialogue-pop {
+  animation: collectionDialoguePop .28s ease;
+}
+
+@keyframes collectionDialoguePop {
+  0% { transform: scale(.985); opacity: .78; }
+  60% { transform: scale(1.012); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 620px) {
+  .collection-detail-dialogue-line {
+    min-height: 50px;
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collection-detail-dialogue.dialogue-pop {
+    animation-duration: .01ms !important;
+  }
+}

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=31">
 </head>
 <body>
   <header>
@@ -1562,6 +1562,19 @@
           <h2 id="collectionDetailName">캐릭터</h2>
           <div class="collection-detail-counts" id="collectionDetailCounts"></div>
 
+          <div class="collection-detail-dialogue hidden" id="collectionDetailDialogueBox">
+            <div class="collection-detail-dialogue-head">
+              <span>CHARACTER VOICE</span>
+              <small id="collectionDetailDialogueCount">1 / 1</small>
+            </div>
+            <button type="button" class="collection-detail-dialogue-line" id="collectionDetailDialogueLine">
+              “캐릭터 대사”
+            </button>
+            <button type="button" class="collection-detail-dialogue-next" id="collectionDetailDialogueNext">
+              💬 다른 대사
+            </button>
+          </div>
+
           <div class="collection-detail-limit hidden" id="collectionDetailLimit">
             <div class="collection-detail-stars" id="collectionDetailStars">☆☆☆</div>
             <p id="collectionDetailLimitMeta">강화 0/3</p>
@@ -1647,6 +1660,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=30"></script>
+  <script src="script.js?v=31"></script>
 </body>
 </html>
