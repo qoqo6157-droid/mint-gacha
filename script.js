@@ -27,7 +27,14 @@ const DEFAULT_SAVE = {
     runner: { highScore: 0, selectedCharacter: null },
     tetris: { highScore: 0, bestLines: 0, selectedCharacter: null, tSpinCount: 0, tetrisCount: 0, perfectClearCount: 0,
       tSpinMiniCount: 0 },
-    rhythm: { selectedCharacter: null, fallSpeed: 1, timingOffset: 0, bestScore: 0 }
+    rhythm: { selectedCharacter: null, fallSpeed: 1, timingOffset: 0, bestScore: 0 },
+    detective: {
+      current: null,
+      nextCaseNumber: 1,
+      partnerId: null,
+      solvedCount: 0,
+      history: []
+    }
   },
   pet: null,
   completedPets: [],
@@ -2735,6 +2742,9 @@ function renderV5GameHub() {
   setSelectOptions("tetrisCharacterSelect", ownedCharacters(), saveData.gameRecords.tetris?.selectedCharacter || "", "연습 캐릭터");
   setSelectOptions("rhythmCharacterSelect", ownedCharacters(), saveData.gameRecords.rhythm?.selectedCharacter || "", "응원 캐릭터 없음");
 
+  const detectiveRecord = getDetectiveRecord();
+  setSelectOptions("detectivePartnerSelect", ownedSSRCharacters(), detectiveRecord.partnerId || "", "수사 파트너 없음");
+
   const pangSelect = document.getElementById("pangCharacterSelect");
   if (pangSelect && pangSelect.value && pangSelect.value !== saveData.gameRecords.characterPang?.equippedSSR) {
     saveData.gameRecords.characterPang.equippedSSR = pangSelect.value;
@@ -2746,6 +2756,7 @@ function renderV5GameHub() {
   renderRunnerStatus();
   renderTetrisStatus();
   renderRhythmStatus();
+  renderDetectiveGame();
 }
 
 document.querySelectorAll("[data-game-view]").forEach((button) => {
@@ -2755,10 +2766,859 @@ document.querySelectorAll("[data-game-view]").forEach((button) => {
     if (view !== "rhythm") pauseRhythmForVisibility();
     if (view !== "tetris") pauseTetrisForVisibility();
     document.querySelectorAll("[data-game-view]").forEach((item) => item.classList.toggle("active", item === button));
-    ["matching", "pang", "runner", "tetris", "rhythm"].forEach((name) => {
+    ["matching", "pang", "runner", "tetris", "rhythm", "detective"].forEach((name) => {
       document.getElementById(`gameView${name[0].toUpperCase()}${name.slice(1)}`)?.classList.toggle("hidden", name !== view);
     });
+    if (view === "detective") renderDetectiveGame();
   });
+});
+
+/* =========================================================
+   CASE FILES · 탐정 사건 수사 게임
+========================================================= */
+
+const DETECTIVE_MOTIVES = {
+  money: "금전",
+  coverup: "은폐",
+  honor: "명예",
+  revenge: "복수"
+};
+
+const DETECTIVE_CORE_EVIDENCE_LABELS = {
+  access: "출입 인증 기록",
+  trace: "미세 흔적",
+  document: "삭제된 문서 조각"
+};
+
+const DETECTIVE_DEDUCTIONS = {
+  contact: {
+    title: "현장 접촉",
+    pair: ["scene", "trace"],
+    text: "현장이 외부 침입처럼 꾸며졌지만 내부 접근자가 직접 현장을 다뤘고, 특정 인물의 미세 흔적이 남았다는 결론."
+  },
+  alibi: {
+    title: "알리바이 붕괴",
+    pair: ["access", "timeline"],
+    text: "제한구역 인증 기록과 비어 있는 시간대가 겹쳐 용의자의 알리바이가 성립하지 않는다는 결론."
+  },
+  motive: {
+    title: "동기와 기회",
+    pair: ["document", "access"],
+    text: "범행 동기를 드러내는 삭제 문서와 제한구역 접근 가능성이 같은 인물을 가리킨다는 결론."
+  }
+};
+
+const DETECTIVE_CASES = [
+  {
+    id: "museum",
+    title: "백야 미술관의 빈 액자",
+    missing: "회화 「월광의 정원」",
+    time: "01:43",
+    description: "폐관 이후 완전히 봉쇄된 제3전시실에서 대표 소장품이 액자만 남긴 채 사라졌다. 외부 침입 흔적은 없고, 경보는 단 한 번도 울리지 않았다.",
+    opening: "01:51, 야간 경비가 빈 액자를 발견했다. 전시실 도어락은 정상 잠금 상태였고 감시 기록에는 짧은 공백이 존재한다.",
+    places: [
+      { id: "gallery", name: "제3전시실", icon: "🖼️", desc: "그림이 사라진 현장. 액자와 바닥, 전시 케이스 주변을 확인한다.", evidence: ["scene", "red1"] },
+      { id: "security", name: "보안실", icon: "🖥️", desc: "출입 시스템과 감시 기록이 보관된 통제실.", evidence: ["access", "red2"] },
+      { id: "archive", name: "자료보관실", icon: "🗃️", desc: "작품 보험, 복원 이력, 내부 결재 문서를 보관한다.", evidence: ["document", "red3"] },
+      { id: "staff", name: "직원 통로", icon: "🚪", desc: "일반 관람객에게 공개되지 않는 내부 이동 경로.", evidence: ["timeline", "trace"] }
+    ],
+    suspects: [
+      { id: "seo", name: "윤서진", role: "수석 큐레이터", code: "CUR-314", trait: "은색 섬유 장갑", motive: "honor", motiveText: "자신의 특별전 실적을 지키기 위해 작품의 진위 논란이 공개되는 것을 막으려 했다." },
+      { id: "han", name: "한도윤", role: "야간 경비", code: "SEC-827", trait: "황동 열쇠고리", motive: "money", motiveText: "개인 채무를 해결하기 위해 외부 거래 제안을 받아들였다." },
+      { id: "yura", name: "서유라", role: "복원사", code: "RST-506", trait: "청록색 복원 안료", motive: "coverup", motiveText: "복원 과정에서 발견한 치명적인 손상을 숨기기 위해 작품 자체를 빼돌리려 했다." },
+      { id: "taeo", name: "이태오", role: "문화부 기자", code: "PRS-119", trait: "검은 만년필 잉크", motive: "revenge", motiveText: "미술관이 과거 자신의 단독 보도를 무산시킨 데 대한 보복으로 사건을 기획했다." }
+    ]
+  },
+  {
+    id: "hotel",
+    title: "라일락 호텔 707호의 사라진 원고",
+    missing: "미발표 장편 원고 「검은 계절」",
+    time: "23:18",
+    description: "출판 계약을 앞둔 미발표 원고가 잠긴 707호 객실에서 사라졌다. 객실 금고와 문에는 파손 흔적이 없지만 서비스 기록이 비정상적으로 끊겨 있다.",
+    opening: "23:31, 작가가 원고 분실을 신고했다. 객실 카드는 정상 반납되었으나 사건 전후 특정 시간대의 관리 기록이 삭제되어 있다.",
+    places: [
+      { id: "room707", name: "707호 객실", icon: "🛏️", desc: "원고가 마지막으로 확인된 객실. 책상과 금고 주변을 조사한다.", evidence: ["scene", "red1"] },
+      { id: "cctv", name: "CCTV 관리실", icon: "📹", desc: "객실 층 복도 영상과 마스터키 인증 기록을 확인한다.", evidence: ["access", "red2"] },
+      { id: "lounge", name: "비즈니스 라운지", icon: "☕", desc: "관계자들이 계약 이야기를 나눴던 공간.", evidence: ["document", "red3"] },
+      { id: "service", name: "서비스 복도", icon: "🛎️", desc: "직원용 엘리베이터와 객실 뒤편을 연결하는 통로.", evidence: ["timeline", "trace"] }
+    ],
+    suspects: [
+      { id: "serin", name: "강세린", role: "작가 매니저", code: "MGR-442", trait: "라일락 향수", motive: "money", motiveText: "경쟁 출판사에 원고를 넘기는 대가로 거액을 받기로 했다." },
+      { id: "hyunwoo", name: "오현우", role: "호텔 지배인", code: "HTL-071", trait: "금색 커프스", motive: "coverup", motiveText: "VIP 고객 정보가 원고 속 실제 사건의 모델로 사용된 사실을 숨기려 했다." },
+      { id: "yujin", name: "최유진", role: "담당 편집자", code: "EDT-913", trait: "보라색 교정 스티커", motive: "honor", motiveText: "다른 편집자가 최종 계약의 공을 가져갈 상황을 막고 자신의 성과를 지키려 했다." },
+      { id: "taemin", name: "김태민", role: "룸서비스 팀장", code: "SRV-268", trait: "계피 향 핸드크림", motive: "revenge", motiveText: "원고 속 등장인물이 자신을 조롱하는 내용이라는 사실을 알고 원고를 없애려 했다." }
+    ]
+  },
+  {
+    id: "lab",
+    title: "새벽 연구동의 잠긴 시제품",
+    missing: "프로토타입 센서 Aster-9",
+    time: "03:06",
+    description: "외부 반출 승인을 받지 않은 핵심 시제품이 잠긴 테스트룸에서 사라졌다. 서버에는 정상 인증 기록만 남아 있지만 장비 반출 센서는 작동하지 않았다.",
+    opening: "03:14, 교대 연구원이 빈 보관 케이스를 발견했다. 테스트룸의 물리 잠금은 멀쩡했고, 서버 로그 일부가 수동 정리된 흔적이 있다.",
+    places: [
+      { id: "testroom", name: "B동 테스트룸", icon: "🧪", desc: "Aster-9이 보관된 밀폐 테스트 공간.", evidence: ["scene", "red1"] },
+      { id: "server", name: "접근 제어 서버실", icon: "🖧", desc: "연구동 출입 인증과 장비 이동 기록을 관리한다.", evidence: ["access", "red2"] },
+      { id: "sharedlab", name: "공동 연구실", icon: "🔬", desc: "개발 문서와 투자 보고서가 오가는 공용 연구 공간.", evidence: ["document", "red3"] },
+      { id: "loading", name: "하역 통로", icon: "📦", desc: "장비 반입·반출 카트가 이동하는 후면 통로.", evidence: ["timeline", "trace"] }
+    ],
+    suspects: [
+      { id: "sion", name: "박시온", role: "책임연구원", code: "RND-615", trait: "탄소섬유 장갑 가루", motive: "honor", motiveText: "시제품 결함이 공개되면 자신의 연구 책임과 명성이 무너질 것을 두려워했다." },
+      { id: "nakyeong", name: "이나경", role: "선임연구원", code: "LAB-304", trait: "형광 표지 시약", motive: "revenge", motiveText: "프로젝트 핵심 특허에서 자신의 이름이 제외된 데 대한 보복을 계획했다." },
+      { id: "hyeonseok", name: "조현석", role: "보안 엔지니어", code: "SYS-882", trait: "회색 절연 테이프", motive: "coverup", motiveText: "자신이 방치한 보안 취약점이 감사에서 드러나는 것을 막으려 했다." },
+      { id: "jisoo", name: "배지수", role: "투자사 기술담당", code: "INV-177", trait: "적색 보안 봉인 스티커", motive: "money", motiveText: "경쟁사에 시제품 분석 정보를 넘기고 투자 손실을 만회하려 했다." }
+    ]
+  }
+];
+
+function getDetectiveRecord() {
+  if (!saveData.gameRecords.detective || typeof saveData.gameRecords.detective !== "object") {
+    saveData.gameRecords.detective = {
+      current: null,
+      nextCaseNumber: 1,
+      partnerId: null,
+      solvedCount: 0,
+      history: []
+    };
+  }
+  const rec = saveData.gameRecords.detective;
+  if (!Array.isArray(rec.history)) rec.history = [];
+  if (!Number.isFinite(Number(rec.nextCaseNumber))) rec.nextCaseNumber = 1;
+  if (!Number.isFinite(Number(rec.solvedCount))) rec.solvedCount = 0;
+  return rec;
+}
+
+function detectiveCurrent() {
+  return getDetectiveRecord().current || null;
+}
+
+function detectiveTheme(state = detectiveCurrent()) {
+  return DETECTIVE_CASES.find((item) => item.id === state?.themeId) || null;
+}
+
+function detectiveCulprit(state = detectiveCurrent(), theme = detectiveTheme(state)) {
+  return theme?.suspects.find((s) => s.id === state?.culpritId) || null;
+}
+
+function detectiveCaseNumberText(number) {
+  return `#${String(Math.max(1, Number(number) || 1)).padStart(3, "0")}`;
+}
+
+function detectiveRandomIndex(max) {
+  if (!max || max <= 1) return 0;
+  if (typeof cryptoRandomInt === "function") return cryptoRandomInt(max);
+  return Math.floor(Math.random() * max);
+}
+
+function detectiveCoreEvidenceForCulprit(theme, culpritId) {
+  const index = Math.max(0, theme.suspects.findIndex((s) => s.id === culpritId));
+  return ["access", "trace", "document"][index % 3];
+}
+
+function detectiveInnocents(theme, culpritId) {
+  return theme.suspects.filter((s) => s.id !== culpritId);
+}
+
+function detectiveEvidenceList(state = detectiveCurrent()) {
+  const theme = detectiveTheme(state);
+  const culprit = detectiveCulprit(state, theme);
+  if (!state || !theme || !culprit) return [];
+
+  const innocents = detectiveInnocents(theme, culprit.id);
+  const [redA, redB, redC] = innocents;
+
+  return [
+    {
+      id: "scene",
+      type: "scene",
+      icon: "🧤",
+      title: "조작된 현장",
+      short: "외부 침입처럼 보이도록 일부 흔적이 의도적으로 꾸며졌다.",
+      detail: `현장 표면의 압흔과 정리 방향이 일반적인 침입 동선과 맞지 않는다. 사건 장소 구조를 잘 아는 내부 접근자가 현장을 다시 손댄 정황이 강하다.`
+    },
+    {
+      id: "trace",
+      type: "trace",
+      icon: "🔬",
+      title: "미세 흔적",
+      short: `${culprit.trait}과 일치하는 미세 흔적이 사건 동선에서 발견됐다.`,
+      detail: `감식 결과 사건 동선에서 발견된 미세 잔류물은 '${culprit.trait}'의 특징과 일치한다. 심문 기록의 개인 특징과 비교하면 중요한 연결점이 된다.`
+    },
+    {
+      id: "access",
+      type: "access",
+      icon: "🔐",
+      title: "출입 인증 기록",
+      short: `사건 전후 제한구역에서 인증 코드 ${culprit.code}가 기록됐다.`,
+      detail: `${state.caseNo}번 사건의 핵심 시각 전후, 제한구역 출입 로그에 '${culprit.code}' 인증이 남아 있다. 로그 삭제 흔적 때문에 일부 시간은 비어 있지만 인증 자체는 복구됐다.`
+    },
+    {
+      id: "timeline",
+      type: "timeline",
+      icon: "⏱️",
+      title: "끊긴 시간선",
+      short: `${culprit.name}의 진술에는 사건 시각과 겹치는 설명되지 않은 공백이 있다.`,
+      detail: `${culprit.name}의 진술과 확보된 기록을 대조하면 사건 핵심 시각 전후 약 15~20분의 행적이 확인되지 않는다. 해당 공백은 제한구역 인증 시각과 겹친다.`
+    },
+    {
+      id: "document",
+      type: "document",
+      icon: "📄",
+      title: "삭제된 문서 조각",
+      short: `${culprit.name}에게 범행 동기가 있었음을 보여주는 복구 문서.`,
+      detail: `삭제 파일 일부를 복구했다. 문서 내용은 '${culprit.motiveText}'는 내용과 직접 연결되며, ${culprit.name}이 사건 직전에 관련 자료를 열람한 기록도 남아 있다.`
+    },
+    {
+      id: "red1",
+      type: "red",
+      icon: "🧩",
+      title: `${redA.name} 관련 수상한 흔적`,
+      short: `${redA.role} ${redA.name}과 관련된 정황이지만 범행을 직접 증명하지는 않는다.`,
+      detail: `${redA.name}의 ${redA.trait}이 현장 인근에서 확인됐지만, 정상 업무 동선에서도 생길 수 있는 흔적이다. 사건 핵심 시각과 직접 연결되는 기록은 없다.`
+    },
+    {
+      id: "red2",
+      type: "red",
+      icon: "📌",
+      title: `${redB.name}의 모순된 메모`,
+      short: `진술과 표현이 조금 다른 메모가 발견됐다.`,
+      detail: `${redB.name}의 개인 메모에는 진술과 다른 표현이 있으나 시간 기록을 대조하면 사건 발생 이전의 내용이다. 수상하지만 범행 증거로 보기 어렵다.`
+    },
+    {
+      id: "red3",
+      type: "red",
+      icon: "🕯️",
+      title: `${redC.name}의 우회 동선`,
+      short: `평소와 다른 이동 경로가 확인됐다.`,
+      detail: `${redC.name}이 평소와 다른 경로를 이용한 것은 사실이지만 별도 기록으로 이유가 확인된다. 제한구역 접근이나 사건 시각과는 직접 겹치지 않는다.`
+    }
+  ];
+}
+
+function detectiveEvidenceById(id, state = detectiveCurrent()) {
+  return detectiveEvidenceList(state).find((e) => e.id === id) || null;
+}
+
+function detectiveSuspectStatement(suspect, state, theme) {
+  const culprit = detectiveCulprit(state, theme);
+  const guilty = suspect.id === culprit?.id;
+  const index = theme.suspects.findIndex((s) => s.id === suspect.id);
+  const innocentAlibis = [
+    `사건 시각 직전 공용 공간에서 업무를 마쳤고, 이후 개인 작업 기록이 남아 있다고 진술했다.`,
+    `사건 시각에는 다른 구역에 있었다고 진술했으며, 일부 보조 기록이 그 설명을 뒷받침한다.`,
+    `잠시 자리를 비운 사실은 인정했지만 사건 장소에는 들어가지 않았다고 주장했다.`,
+    `사건 전후 연락 기록이 있으며 제한구역 접근은 없었다고 진술했다.`
+  ];
+
+  return {
+    alibi: guilty
+      ? `사건 핵심 시각에는 혼자 정리 업무를 하고 있었다고 주장한다. 그러나 정확한 위치를 묻자 약 15~20분 구간의 설명이 흐려진다.`
+      : innocentAlibis[index % innocentAlibis.length],
+    suspicious: guilty
+      ? `사건 관련 질문에서 '${suspect.motiveText}'와 연결되는 주제를 유독 회피한다.`
+      : `${suspect.trait} 때문에 현장 정황과 연결돼 보일 수 있지만 현재까지 직접적인 범행 증거는 없다.`,
+    guilty
+  };
+}
+
+function detectiveProgress(state = detectiveCurrent()) {
+  if (!state) return { percent: 0, evidence: 0, interviews: 0, deductions: 0 };
+  const evidence = Array.isArray(state.discoveredEvidence) ? state.discoveredEvidence.length : 0;
+  const interviews = Array.isArray(state.interviews) ? state.interviews.length : 0;
+  const deductions = Array.isArray(state.deductions) ? state.deductions.length : 0;
+  const percent = Math.min(100, Math.round(((evidence + interviews + deductions) / 15) * 100));
+  return { percent, evidence, interviews, deductions };
+}
+
+function detectiveBaseReward(wrongAttempts = 0) {
+  return Math.max(3000, 4200 - Math.max(0, Number(wrongAttempts) || 0) * 300);
+}
+
+function detectiveRewardPreview(state = detectiveCurrent()) {
+  if (!state) return { base: 4200, bonus: 0, final: 4200 };
+  const rec = getDetectiveRecord();
+  const base = detectiveBaseReward(state.wrongAttempts);
+  const bonus = selectedCharacterRewardBonus(rec.partnerId);
+  return {
+    base,
+    bonus,
+    final: Math.min(5000, applyPointBonus(base, bonus))
+  };
+}
+
+function saveDetectiveProgress(reason = "수사 진행") {
+  saveGame();
+  if (currentUser && cloudReady) void saveCloudNow(`${reason} 즉시 저장`);
+}
+
+function createDetectiveCase({ keepTheme = false, keepCulprit = false } = {}) {
+  const rec = getDetectiveRecord();
+  const previous = rec.current;
+  let theme = null;
+
+  if (keepTheme && previous) {
+    theme = detectiveTheme(previous);
+  } else {
+    const candidates = DETECTIVE_CASES.filter((item) => item.id !== previous?.themeId);
+    const pool = candidates.length ? candidates : DETECTIVE_CASES;
+    theme = pool[detectiveRandomIndex(pool.length)];
+  }
+
+  let culprit = null;
+  if (keepCulprit && previous && theme?.id === previous.themeId) {
+    culprit = theme.suspects.find((s) => s.id === previous.culpritId);
+  }
+  if (!culprit) culprit = theme.suspects[detectiveRandomIndex(theme.suspects.length)];
+
+  const caseNo = keepTheme && previous ? previous.caseNo : Math.max(1, Math.floor(Number(rec.nextCaseNumber) || 1));
+  if (!keepTheme) rec.nextCaseNumber = caseNo + 1;
+
+  rec.current = {
+    schemaVersion: 30,
+    caseNo,
+    themeId: theme.id,
+    culpritId: culprit.id,
+    motive: culprit.motive,
+    coreEvidenceType: detectiveCoreEvidenceForCulprit(theme, culprit.id),
+    discoveredEvidence: [],
+    interviews: [],
+    deductions: [],
+    selectedEvidence: [],
+    wrongAttempts: 0,
+    solved: false,
+    reward: 0,
+    activeTab: "overview",
+    createdAt: Date.now()
+  };
+
+  saveDetectiveProgress("새 사건 배정");
+  detectiveCaseAssignmentFx();
+  renderDetectiveGame();
+}
+
+function requestNewDetectiveCase() {
+  const current = detectiveCurrent();
+  if (current && !current.solved) {
+    const progress = detectiveProgress(current);
+    const touched = progress.evidence > 0 || progress.interviews > 0 || progress.deductions > 0 || current.wrongAttempts > 0;
+    const message = touched
+      ? "현재 진행 중인 수사 기록을 버리고 새 사건을 배정받을까요?"
+      : "현재 사건을 버리고 다른 새 사건을 배정받을까요?";
+    if (!confirm(message)) return;
+  }
+  createDetectiveCase();
+}
+
+function resetDetectiveCase() {
+  const current = detectiveCurrent();
+  if (!current) return;
+  if (!confirm("같은 사건의 조사 기록을 처음부터 다시 시작할까요? 범인과 사건 테마는 유지됩니다.")) return;
+  createDetectiveCase({ keepTheme: true, keepCulprit: true });
+}
+
+function detectiveCaseAssignmentFx() {
+  const shell = document.getElementById("detectiveShell");
+  if (!shell) return;
+  shell.classList.remove("case-assigned");
+  void shell.offsetWidth;
+  shell.classList.add("case-assigned");
+  setTimeout(() => shell.classList.remove("case-assigned"), 900);
+}
+
+function detectiveClosedFx() {
+  const layer = document.getElementById("detectiveCaseFx");
+  if (!layer) return;
+  layer.innerHTML = "";
+  for (let i = 0; i < 28; i++) {
+    const dot = document.createElement("i");
+    dot.className = "detective-confetti";
+    dot.style.setProperty("--dx", `${-180 + Math.random() * 360}px`);
+    dot.style.setProperty("--dy", `${-100 - Math.random() * 210}px`);
+    dot.style.setProperty("--dd", `${Math.random() * .35}s`);
+    layer.appendChild(dot);
+    setTimeout(() => dot.remove(), 1600);
+  }
+}
+
+function detectiveSetTab(tab, { save = true } = {}) {
+  const valid = ["overview", "scene", "suspects", "board", "final"];
+  const next = valid.includes(tab) ? tab : "overview";
+  document.querySelectorAll("[data-detective-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.detectiveTab === next);
+  });
+  valid.forEach((name) => {
+    document.getElementById(`detectiveTab${name[0].toUpperCase()}${name.slice(1)}`)?.classList.toggle("hidden", name !== next);
+  });
+
+  const state = detectiveCurrent();
+  if (state && state.activeTab !== next) {
+    state.activeTab = next;
+    if (save) saveDetectiveProgress("수사 탭 위치");
+  }
+}
+
+function renderDetectivePartner() {
+  const rec = getDetectiveRecord();
+  const select = document.getElementById("detectivePartnerSelect");
+  const name = document.getElementById("detectivePartnerName");
+  const bonus = document.getElementById("detectivePartnerBonus");
+  const thumb = document.getElementById("detectivePartnerThumb");
+  if (!name || !bonus || !thumb) return;
+
+  const char = characters.find((c) => c.id === rec.partnerId && c.rarity === "SSR" && getOwnedCount(c.id) > 0) || null;
+  if (!char) {
+    name.textContent = "파트너 없음";
+    bonus.textContent = "보유 SSR을 선택할 수 있어요.";
+    thumb.innerHTML = "<span>SSR</span>";
+    thumb.classList.remove("full");
+    if (select && rec.partnerId) select.value = "";
+    return;
+  }
+
+  name.textContent = char.name;
+  const full = getLimitBreakLevel(char.id) === 3;
+  bonus.textContent = full ? "★★★ FULL · 사건 해결 보상 +20%" : "일반 SSR · 추가 보너스 없음";
+  thumb.innerHTML = char.image_url
+    ? `<img src="${escapeHTML(char.image_url)}" alt="${escapeHTML(char.name)}">`
+    : "<span>SSR</span>";
+  thumb.classList.toggle("full", full);
+}
+
+function renderDetectiveOverview(state, theme) {
+  const culprit = detectiveCulprit(state, theme);
+  const progress = detectiveProgress(state);
+  const rec = getDetectiveRecord();
+
+  document.getElementById("detectiveOverviewCaseNo").textContent = `CASE FILE ${detectiveCaseNumberText(state.caseNo)}`;
+  document.getElementById("detectiveOverviewStatus").textContent = state.solved ? "CLOSED" : "OPEN";
+  document.getElementById("detectiveOverviewStatus").classList.toggle("closed", state.solved);
+  document.getElementById("detectiveOverviewTitle").textContent = theme.title;
+  document.getElementById("detectiveOverviewDescription").textContent = theme.description;
+  document.getElementById("detectiveMissingItem").textContent = theme.missing;
+  document.getElementById("detectiveIncidentTime").textContent = theme.time;
+  document.getElementById("detectiveOpeningText").textContent = theme.opening;
+
+  const memo = document.getElementById("detectiveMemoList");
+  if (memo) {
+    const notes = [];
+    if (!progress.evidence) notes.push("현장수사부터 시작해 사건의 기초 단서를 확보하세요.");
+    if (progress.evidence > 0) notes.push(`현재 증거 ${progress.evidence}/8 확보. 조사 완료 장소는 언제든 다시 열람할 수 있습니다.`);
+    if (progress.interviews > 0) notes.push(`용의자 진술 ${progress.interviews}/4 확인. 인증 코드와 미세 흔적을 비교해보세요.`);
+    if (progress.deductions > 0) notes.push(`확정 추리 ${progress.deductions}/3 완성. 2개 이상이면 최종 지목이 가능합니다.`);
+    if (state.wrongAttempts >= 2) {
+      notes.push("💡 힌트: 출입 인증 코드 · 현장의 미세 흔적 · 용의자 진술을 서로 비교해보세요.");
+    }
+    if (state.solved && culprit) notes.push(`✅ 사건 종결: ${culprit.name}의 범행으로 확정되었습니다.`);
+    memo.innerHTML = notes.map((note) => `<div>${escapeHTML(note)}</div>`).join("");
+  }
+
+  const history = document.getElementById("detectiveHistoryList");
+  if (history) {
+    const list = (rec.history || []).slice(0, 5);
+    history.innerHTML = list.length
+      ? list.map((item) => `
+        <div class="detective-history-item">
+          <span>${escapeHTML(detectiveCaseNumberText(item.caseNo))}</span>
+          <div><strong>${escapeHTML(item.title)}</strong><small>범인 ${escapeHTML(item.culprit)} · ${formatPoints(item.reward)}P</small></div>
+        </div>`).join("")
+      : `<div class="detective-history-empty">아직 해결한 사건이 없어요.</div>`;
+  }
+}
+
+function renderDetectiveLocations(state, theme) {
+  const grid = document.getElementById("detectiveLocationGrid");
+  if (!grid) return;
+  const evidenceList = detectiveEvidenceList(state);
+
+  grid.innerHTML = theme.places.map((place) => {
+    const found = place.evidence.filter((id) => state.discoveredEvidence.includes(id));
+    const complete = found.length === place.evidence.length;
+    const nextId = place.evidence.find((id) => !state.discoveredEvidence.includes(id));
+    return `
+      <article class="detective-location-card ${complete ? "complete" : ""}">
+        <div class="detective-location-icon">${place.icon}</div>
+        <div class="detective-location-info">
+          <div class="detective-location-title">
+            <strong>${escapeHTML(place.name)}</strong>
+            <span>${found.length}/${place.evidence.length}</span>
+          </div>
+          <p>${escapeHTML(place.desc)}</p>
+          <div class="detective-found-chips">
+            ${found.length
+              ? found.map((id) => {
+                  const e = evidenceList.find((item) => item.id === id);
+                  return `<span>✓ ${escapeHTML(e?.title || id)}</span>`;
+                }).join("")
+              : `<small>아직 발견한 증거가 없어요.</small>`}
+          </div>
+        </div>
+        <button class="${complete ? "white-button" : "mint-button"}" data-detective-investigate="${escapeHTML(place.id)}" ${state.solved ? "disabled" : ""}>
+          ${complete ? "📖 조사 내용 다시 보기" : `🔦 조사하기${nextId ? "" : ""}`}
+        </button>
+      </article>`;
+  }).join("");
+
+  grid.querySelectorAll("[data-detective-investigate]").forEach((button) => {
+    button.addEventListener("click", () => investigateDetectiveLocation(button.dataset.detectiveInvestigate));
+  });
+}
+
+function investigateDetectiveLocation(placeId) {
+  const state = detectiveCurrent();
+  const theme = detectiveTheme(state);
+  if (!state || !theme || state.solved) return;
+  const place = theme.places.find((p) => p.id === placeId);
+  if (!place) return;
+
+  const remaining = place.evidence.filter((id) => !state.discoveredEvidence.includes(id));
+  if (remaining.length) {
+    const id = remaining[0];
+    state.discoveredEvidence.push(id);
+    const evidence = detectiveEvidenceById(id, state);
+    saveDetectiveProgress("현장 증거 발견");
+    renderDetectiveGame();
+    setMessage("detectiveBoardMessage", `🔎 ${place.name}에서 「${evidence?.title || "증거"}」을 확보했어요.`, "success");
+    detectiveSetTab("scene", { save: false });
+    return;
+  }
+
+  const found = place.evidence.map((id) => detectiveEvidenceById(id, state)).filter(Boolean);
+  alert(`📖 ${place.name} 조사 기록\n\n${found.map((e) => `• ${e.title}\n${e.detail}`).join("\n\n")}`);
+}
+
+function renderDetectiveSuspects(state, theme) {
+  const grid = document.getElementById("detectiveSuspectGrid");
+  if (!grid) return;
+  const hasAccess = state.discoveredEvidence.includes("access");
+  const accessEvidence = detectiveEvidenceById("access", state);
+
+  grid.innerHTML = theme.suspects.map((suspect) => {
+    const interviewed = state.interviews.includes(suspect.id);
+    const statement = detectiveSuspectStatement(suspect, state, theme);
+    return `
+      <article class="detective-suspect-card ${interviewed ? "interviewed" : ""}">
+        <div class="detective-suspect-avatar">${escapeHTML(suspect.name.slice(-1))}</div>
+        <div class="detective-suspect-main">
+          <div class="detective-suspect-title">
+            <div><strong>${escapeHTML(suspect.name)}</strong><small>${escapeHTML(suspect.role)}</small></div>
+            <span>${interviewed ? "진술 확보" : "미심문"}</span>
+          </div>
+          ${interviewed ? `
+            <dl class="detective-statement">
+              <div><dt>인증 코드</dt><dd>${escapeHTML(suspect.code)}</dd></div>
+              <div><dt>개인 특징</dt><dd>${escapeHTML(suspect.trait)}</dd></div>
+              <div><dt>알리바이</dt><dd>${escapeHTML(statement.alibi)}</dd></div>
+              <div><dt>수상한 정황</dt><dd>${escapeHTML(statement.suspicious)}</dd></div>
+            </dl>
+            ${hasAccess ? `
+              <div class="detective-code-compare ${accessEvidence?.detail.includes(suspect.code) ? "match" : ""}">
+                🔐 확보 기록과 비교: ${escapeHTML(suspect.code)}
+                ${accessEvidence?.detail.includes(suspect.code) ? " · 기록과 일치" : " · 직접 일치 없음"}
+              </div>` : ""}
+          ` : `<p class="detective-suspect-locked">질문을 시작하면 알리바이와 인증 코드, 개인 특징이 공개됩니다.</p>`}
+        </div>
+        <button class="${interviewed ? "white-button" : "mint-button"}" data-detective-interview="${escapeHTML(suspect.id)}" ${state.solved ? "disabled" : ""}>
+          ${interviewed ? "💬 진술 다시 보기" : "👤 심문하기"}
+        </button>
+      </article>`;
+  }).join("");
+
+  grid.querySelectorAll("[data-detective-interview]").forEach((button) => {
+    button.addEventListener("click", () => interrogateDetectiveSuspect(button.dataset.detectiveInterview));
+  });
+}
+
+function interrogateDetectiveSuspect(suspectId) {
+  const state = detectiveCurrent();
+  const theme = detectiveTheme(state);
+  if (!state || !theme || state.solved) return;
+  const suspect = theme.suspects.find((s) => s.id === suspectId);
+  if (!suspect) return;
+
+  const already = state.interviews.includes(suspectId);
+  if (!already) {
+    state.interviews.push(suspectId);
+    saveDetectiveProgress("용의자 심문");
+    renderDetectiveGame();
+  }
+
+  const statement = detectiveSuspectStatement(suspect, state, theme);
+  const access = state.discoveredEvidence.includes("access")
+    ? `\n\n🔐 출입 기록 비교\n${suspect.code}${detectiveEvidenceById("access", state)?.detail.includes(suspect.code) ? " · 확보한 기록과 일치" : " · 직접 일치 없음"}`
+    : "";
+
+  alert(`👤 ${suspect.name} / ${suspect.role}\n\n인증 코드: ${suspect.code}\n개인 특징: ${suspect.trait}\n\n알리바이\n${statement.alibi}\n\n수상한 정황\n${statement.suspicious}${access}`);
+}
+
+function renderDetectiveBoard(state) {
+  const grid = document.getElementById("detectiveEvidenceGrid");
+  const selectedText = document.getElementById("detectiveSelectedEvidenceText");
+  const connect = document.getElementById("detectiveConnectEvidenceButton");
+  const deductions = document.getElementById("detectiveDeductionList");
+  const deductionCount = document.getElementById("detectiveDeductionCount");
+  if (!grid || !selectedText || !connect || !deductions || !deductionCount) return;
+
+  const evidenceList = detectiveEvidenceList(state);
+  const found = evidenceList.filter((e) => state.discoveredEvidence.includes(e.id));
+  grid.innerHTML = found.length
+    ? found.map((e) => `
+      <button type="button" class="detective-evidence-card ${state.selectedEvidence.includes(e.id) ? "selected" : ""} ${e.type === "red" ? "red-herring" : ""}" data-detective-evidence="${e.id}">
+        <span class="detective-evidence-icon">${e.icon}</span>
+        <div><strong>${escapeHTML(e.title)}</strong><small>${escapeHTML(e.short)}</small></div>
+        <em>${escapeHTML(detectiveEvidenceLocation(e.id, state))}</em>
+      </button>`).join("")
+    : `<div class="detective-board-empty">현장수사에서 증거를 확보하면 이곳에 카드로 정리됩니다.</div>`;
+
+  selectedText.textContent = `선택 ${state.selectedEvidence.length}/2`;
+  connect.disabled = state.selectedEvidence.length !== 2 || state.solved;
+
+  grid.querySelectorAll("[data-detective-evidence]").forEach((button) => {
+    button.addEventListener("click", () => toggleDetectiveEvidence(button.dataset.detectiveEvidence));
+  });
+
+  const completed = Object.entries(DETECTIVE_DEDUCTIONS).filter(([id]) => state.deductions.includes(id));
+  deductionCount.textContent = `${completed.length} / 3`;
+  deductions.innerHTML = Object.entries(DETECTIVE_DEDUCTIONS).map(([id, item]) => {
+    const done = state.deductions.includes(id);
+    return `
+      <div class="detective-deduction-item ${done ? "done" : ""}">
+        <span>${done ? "✓" : "?"}</span>
+        <div>
+          <strong>${done ? escapeHTML(item.title) : "미완성 추리"}</strong>
+          <small>${done ? escapeHTML(item.text) : "관련 증거 두 개를 연결하세요."}</small>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function detectiveEvidenceLocation(evidenceId, state = detectiveCurrent()) {
+  const theme = detectiveTheme(state);
+  const place = theme?.places.find((p) => p.evidence.includes(evidenceId));
+  return place?.name || "현장";
+}
+
+function toggleDetectiveEvidence(id) {
+  const state = detectiveCurrent();
+  if (!state || state.solved || !state.discoveredEvidence.includes(id)) return;
+  if (!Array.isArray(state.selectedEvidence)) state.selectedEvidence = [];
+
+  if (state.selectedEvidence.includes(id)) {
+    state.selectedEvidence = state.selectedEvidence.filter((x) => x !== id);
+  } else {
+    if (state.selectedEvidence.length >= 2) state.selectedEvidence.shift();
+    state.selectedEvidence.push(id);
+  }
+
+  saveDetectiveProgress("증거 선택");
+  renderDetectiveBoard(state);
+}
+
+function connectDetectiveEvidence() {
+  const state = detectiveCurrent();
+  if (!state || state.solved || state.selectedEvidence.length !== 2) return;
+
+  const pair = [...state.selectedEvidence].sort();
+  const found = Object.entries(DETECTIVE_DEDUCTIONS).find(([id, item]) => {
+    return [...item.pair].sort().join("|") === pair.join("|");
+  });
+
+  if (!found) {
+    state.selectedEvidence = [];
+    saveDetectiveProgress("증거 연결 시도");
+    renderDetectiveBoard(state);
+    setMessage("detectiveBoardMessage", "이 조합만으로는 확정 추리를 만들기 어려워요. 다른 증거를 연결해보세요.", "error");
+    return;
+  }
+
+  const [id, item] = found;
+  const wasNew = !state.deductions.includes(id);
+  if (wasNew) state.deductions.push(id);
+  state.selectedEvidence = [];
+  saveDetectiveProgress("확정 추리 생성");
+  renderDetectiveGame();
+  detectiveSetTab("board", { save: false });
+  setMessage("detectiveBoardMessage", wasNew ? `✓ 확정 추리 「${item.title}」 완성!` : `「${item.title}」은 이미 완성한 추리예요.`, wasNew ? "success" : "");
+}
+
+function renderDetectiveFinal(state, theme) {
+  const culpritSelect = document.getElementById("detectiveFinalCulpritSelect");
+  const evidenceSelect = document.getElementById("detectiveFinalEvidenceSelect");
+  const accuse = document.getElementById("detectiveAccuseButton");
+  const wrong = document.getElementById("detectiveWrongAttempts");
+  const preview = detectiveRewardPreview(state);
+  const closed = document.getElementById("detectiveCaseClosed");
+
+  if (culpritSelect) {
+    const current = culpritSelect.value;
+    culpritSelect.innerHTML = `<option value="">범인을 선택하세요</option>` + theme.suspects
+      .map((s) => `<option value="${s.id}">${escapeHTML(s.name)} · ${escapeHTML(s.role)}</option>`).join("");
+    if (theme.suspects.some((s) => s.id === current)) culpritSelect.value = current;
+  }
+
+  if (evidenceSelect) {
+    const current = evidenceSelect.value;
+    const candidates = detectiveEvidenceList(state)
+      .filter((e) => ["access", "trace", "document"].includes(e.type) && state.discoveredEvidence.includes(e.id));
+    evidenceSelect.innerHTML = `<option value="">핵심 증거를 선택하세요</option>` + candidates
+      .map((e) => `<option value="${e.type}">${escapeHTML(e.title)}</option>`).join("");
+    if (candidates.some((e) => e.type === current)) evidenceSelect.value = current;
+  }
+
+  if (wrong) wrong.textContent = String(state.wrongAttempts || 0);
+  document.getElementById("detectiveRewardPreview").textContent = `${formatPoints(preview.base)}P`;
+  document.getElementById("detectiveRewardBonusPreview").textContent = preview.bonus
+    ? `★★★ 풀돌 파트너 +20% → 최대 ${formatPoints(preview.final)}P`
+    : `풀돌 파트너 보너스 없음 · 예상 ${formatPoints(preview.final)}P`;
+
+  if (accuse) {
+    accuse.disabled = state.deductions.length < 2 || state.solved;
+    accuse.textContent = state.deductions.length < 2 ? `확정 추리 ${state.deductions.length}/2 필요` : "⚖️ 최종 지목";
+  }
+
+  closed?.classList.toggle("hidden", !state.solved);
+  if (state.solved) {
+    const culprit = detectiveCulprit(state, theme);
+    document.getElementById("detectiveClosedTitle").textContent = `${theme.title} · 해결 완료`;
+    document.getElementById("detectiveClosedSummary").textContent =
+      `${culprit.name}이(가) 진범으로 확인됐습니다. 동기: ${DETECTIVE_MOTIVES[state.motive]}. ${culprit.motiveText}`;
+    document.getElementById("detectiveClosedReward").textContent = `${formatPoints(state.reward || 0)}P`;
+  }
+}
+
+function submitDetectiveAccusation() {
+  const state = detectiveCurrent();
+  const theme = detectiveTheme(state);
+  if (!state || !theme || state.solved) return;
+  if (state.deductions.length < 2) {
+    setMessage("detectiveFinalMessage", "확정 추리를 최소 2개 완성해야 최종 지목할 수 있어요.", "error");
+    return;
+  }
+
+  const culprit = document.getElementById("detectiveFinalCulpritSelect")?.value || "";
+  const motive = document.getElementById("detectiveFinalMotiveSelect")?.value || "";
+  const evidence = document.getElementById("detectiveFinalEvidenceSelect")?.value || "";
+
+  if (!culprit || !motive || !evidence) {
+    setMessage("detectiveFinalMessage", "범인 · 동기 · 핵심 증거를 모두 선택해주세요.", "error");
+    return;
+  }
+
+  const correct = culprit === state.culpritId && motive === state.motive && evidence === state.coreEvidenceType;
+
+  if (!correct) {
+    state.wrongAttempts = Math.max(0, Number(state.wrongAttempts) || 0) + 1;
+    saveDetectiveProgress("최종 추리 오답");
+    renderDetectiveGame();
+    detectiveSetTab("final", { save: false });
+
+    const hint = state.wrongAttempts >= 2
+      ? " 힌트가 수사 메모에 추가됐어요. 출입 코드, 미세 흔적, 진술을 다시 비교해보세요."
+      : " 사건은 종료되지 않아요. 현장과 진술, 증거보드를 다시 확인할 수 있습니다.";
+    setMessage("detectiveFinalMessage", `추리에 모순이 있어요.${hint}`, "error");
+    return;
+  }
+
+  solveDetectiveCase();
+}
+
+function solveDetectiveCase() {
+  const state = detectiveCurrent();
+  const theme = detectiveTheme(state);
+  const culprit = detectiveCulprit(state, theme);
+  if (!state || !theme || !culprit || state.solved) return;
+
+  const rec = getDetectiveRecord();
+  const preview = detectiveRewardPreview(state);
+
+  state.solved = true;
+  state.reward = preview.final;
+  state.solvedAt = Date.now();
+  state.activeTab = "final";
+  rec.solvedCount = Math.max(0, Number(rec.solvedCount) || 0) + 1;
+  rec.history.unshift({
+    caseNo: state.caseNo,
+    title: theme.title,
+    culprit: culprit.name,
+    reward: preview.final,
+    solvedAt: state.solvedAt
+  });
+  rec.history = rec.history.slice(0, 20);
+
+  addPoints(preview.final);
+  saveDetectiveProgress("사건 해결");
+  renderDetectiveGame();
+  detectiveSetTab("final", { save: false });
+  setMessage("detectiveFinalMessage", `CASE CLOSED · ${culprit.name}을(를) 진범으로 확정했어요!`, "success");
+  detectiveClosedFx();
+}
+
+function renderDetectiveGame() {
+  const rec = getDetectiveRecord();
+  const state = rec.current;
+  const empty = document.getElementById("detectiveEmptyState");
+  const body = document.getElementById("detectiveGameBody");
+
+  const point = document.getElementById("detectivePointDisplay");
+  const solved = document.getElementById("detectiveSolvedCount");
+  if (point) point.textContent = `${formatPoints(saveData.points)}P`;
+  if (solved) solved.textContent = `${formatPoints(rec.solvedCount || 0)} CASE`;
+
+  renderDetectivePartner();
+
+  if (!state) {
+    empty?.classList.remove("hidden");
+    body?.classList.add("hidden");
+    document.getElementById("detectiveCaseNumber").textContent = "NO CASE";
+    document.getElementById("detectiveCaseTitle").textContent = "새 사건을 배정해주세요";
+    document.getElementById("detectiveProgressText").textContent = "수사 진행도 0%";
+    document.getElementById("detectiveProgressMeta").textContent = "증거 0/8 · 진술 0/4 · 추리 0/3";
+    document.getElementById("detectiveProgressBar").style.width = "0%";
+    return;
+  }
+
+  const theme = detectiveTheme(state);
+  if (!theme) return;
+
+  empty?.classList.add("hidden");
+  body?.classList.remove("hidden");
+
+  const progress = detectiveProgress(state);
+  document.getElementById("detectiveCaseNumber").textContent = `CASE ${detectiveCaseNumberText(state.caseNo)}`;
+  document.getElementById("detectiveCaseTitle").textContent = theme.title;
+  document.getElementById("detectiveProgressText").textContent = state.solved ? "수사 진행도 100% · 해결 완료" : `수사 진행도 ${progress.percent}%`;
+  document.getElementById("detectiveProgressMeta").textContent = `증거 ${progress.evidence}/8 · 진술 ${progress.interviews}/4 · 추리 ${progress.deductions}/3`;
+  document.getElementById("detectiveProgressBar").style.width = `${state.solved ? 100 : progress.percent}%`;
+
+  renderDetectiveOverview(state, theme);
+  renderDetectiveLocations(state, theme);
+  renderDetectiveSuspects(state, theme);
+  renderDetectiveBoard(state);
+  renderDetectiveFinal(state, theme);
+  detectiveSetTab(state.activeTab || "overview", { save: false });
+}
+
+document.getElementById("detectiveNewCaseButton")?.addEventListener("click", requestNewDetectiveCase);
+document.getElementById("detectiveFirstCaseButton")?.addEventListener("click", requestNewDetectiveCase);
+document.getElementById("detectiveNextCaseButton")?.addEventListener("click", () => createDetectiveCase());
+document.getElementById("detectiveResetCaseButton")?.addEventListener("click", resetDetectiveCase);
+document.getElementById("detectiveConnectEvidenceButton")?.addEventListener("click", connectDetectiveEvidence);
+document.getElementById("detectiveAccuseButton")?.addEventListener("click", submitDetectiveAccusation);
+
+document.querySelectorAll("[data-detective-tab]").forEach((button) => {
+  button.addEventListener("click", () => detectiveSetTab(button.dataset.detectiveTab));
+});
+
+document.getElementById("detectivePartnerSelect")?.addEventListener("change", (event) => {
+  const rec = getDetectiveRecord();
+  const id = event.target.value || null;
+  const valid = !id || ownedSSRCharacters().some((char) => char.id === id);
+  if (!valid) {
+    event.target.value = rec.partnerId || "";
+    return;
+  }
+  rec.partnerId = id;
+  saveDetectiveProgress("수사 파트너 설정");
+  renderDetectiveGame();
 });
 
 /* =========================================================

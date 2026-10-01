@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
   <header>
@@ -271,6 +271,7 @@
         <button class="game-menu-card" data-game-view="runner"><span>🏃</span><strong>캐릭터 점프</strong><small>2단 점프 러너</small></button>
         <button class="game-menu-card" data-game-view="tetris"><span>🧱</span><strong>테트리스</strong><small>HOLD · NEXT 5</small></button>
         <button class="game-menu-card" data-game-view="rhythm"><span>🎵</span><strong>리듬 탭</strong><small>PC D·F·J·K / 모바일 판정선 터치</small></button>
+        <button class="game-menu-card detective-menu-card" data-game-view="detective"><span>🔎</span><strong>사건 수사</strong><small>CASE FILES · 추리 게임</small></button>
       </div>
 
       <!-- 카드 짝 맞추기 -->
@@ -518,6 +519,241 @@
           <button class="white-button" id="rhythmOffsetResetButton">보정 0ms</button>
         </div>
         <p class="inline-message" id="rhythmMessage"></p>
+      </section>
+
+      <!-- 탐정 사건 수사 -->
+      <section class="mini-game-panel detective-panel hidden" id="gameViewDetective">
+        <div class="detective-shell" id="detectiveShell">
+          <div class="detective-case-fx" id="detectiveCaseFx" aria-hidden="true"></div>
+
+          <div class="detective-head">
+            <div>
+              <p class="section-label detective-label">CASE FILES</p>
+              <h3>탐정 사건 수사 게임</h3>
+              <p>시간 제한 없이 현장을 조사하고, 진술과 증거를 연결해 사건의 진실을 밝혀내세요.</p>
+            </div>
+            <div class="detective-head-actions">
+              <button class="white-button" id="detectiveNewCaseButton" type="button">📁 새 사건 배정</button>
+              <button class="white-button" id="detectiveResetCaseButton" type="button">↻ 현재 사건 초기화</button>
+            </div>
+          </div>
+
+          <div class="detective-case-strip">
+            <div>
+              <span>CASE FILE</span>
+              <strong id="detectiveCaseNumber">NO CASE</strong>
+            </div>
+            <div>
+              <span>현재 사건</span>
+              <strong id="detectiveCaseTitle">새 사건을 배정해주세요</strong>
+            </div>
+            <div>
+              <span>보유 포인트</span>
+              <strong id="detectivePointDisplay">0P</strong>
+            </div>
+            <div>
+              <span>누적 해결</span>
+              <strong id="detectiveSolvedCount">0 CASE</strong>
+            </div>
+          </div>
+
+          <div class="detective-partner-row">
+            <label class="detective-partner-select">
+              <span>수사 파트너</span>
+              <select id="detectivePartnerSelect"></select>
+            </label>
+            <div class="detective-partner-card" id="detectivePartnerCard">
+              <div class="detective-partner-thumb" id="detectivePartnerThumb"><span>SSR</span></div>
+              <div>
+                <strong id="detectivePartnerName">파트너 없음</strong>
+                <small id="detectivePartnerBonus">보유 SSR을 선택할 수 있어요.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="detective-progress-wrap">
+            <div class="detective-progress-head">
+              <strong id="detectiveProgressText">수사 진행도 0%</strong>
+              <span id="detectiveProgressMeta">증거 0/8 · 진술 0/4 · 추리 0/3</span>
+            </div>
+            <div class="detective-progress-track"><i id="detectiveProgressBar"></i></div>
+          </div>
+
+          <div class="detective-empty" id="detectiveEmptyState">
+            <div class="detective-empty-file">
+              <span>?</span>
+              <strong>CASE UNASSIGNED</strong>
+            </div>
+            <h4>아직 배정된 사건이 없어요.</h4>
+            <p>새 사건을 배정받으면 3개의 사건 테마 중 하나와 진범이 무작위로 결정됩니다.</p>
+            <button class="mint-button" id="detectiveFirstCaseButton" type="button">🔎 첫 사건 배정받기</button>
+          </div>
+
+          <div class="detective-game hidden" id="detectiveGameBody">
+            <div class="detective-tabs" id="detectiveTabs">
+              <button class="active" data-detective-tab="overview">📁 사건개요</button>
+              <button data-detective-tab="scene">🔦 현장수사</button>
+              <button data-detective-tab="suspects">👤 용의자</button>
+              <button data-detective-tab="board">🧷 증거보드</button>
+              <button data-detective-tab="final">⚖️ 최종추리</button>
+            </div>
+
+            <section class="detective-tab-panel" id="detectiveTabOverview">
+              <div class="detective-overview-grid">
+                <article class="detective-dossier">
+                  <div class="detective-dossier-top">
+                    <span id="detectiveOverviewCaseNo">CASE FILE #001</span>
+                    <em id="detectiveOverviewStatus">OPEN</em>
+                  </div>
+                  <h4 id="detectiveOverviewTitle">사건명</h4>
+                  <p id="detectiveOverviewDescription"></p>
+
+                  <div class="detective-facts">
+                    <div><span>사라진 대상</span><strong id="detectiveMissingItem">-</strong></div>
+                    <div><span>핵심 사건 시각</span><strong id="detectiveIncidentTime">-</strong></div>
+                    <div><span>조사 장소</span><strong>4곳</strong></div>
+                    <div><span>용의자</span><strong>4명</strong></div>
+                  </div>
+
+                  <div class="detective-opening-note">
+                    <strong>초기 상황</strong>
+                    <p id="detectiveOpeningText"></p>
+                  </div>
+                </article>
+
+                <aside class="detective-memo-card">
+                  <div class="detective-memo-head">
+                    <span>📝 INVESTIGATION MEMO</span>
+                    <strong id="detectiveMemoBadge">AUTO</strong>
+                  </div>
+                  <div id="detectiveMemoList" class="detective-memo-list"></div>
+                </aside>
+              </div>
+
+              <div class="detective-history-card">
+                <div class="detective-history-head">
+                  <strong>최근 해결 기록</strong>
+                  <small>최대 5건까지 표시</small>
+                </div>
+                <div id="detectiveHistoryList" class="detective-history-list"></div>
+              </div>
+            </section>
+
+            <section class="detective-tab-panel hidden" id="detectiveTabScene">
+              <div class="detective-section-head">
+                <div>
+                  <span>SCENE INVESTIGATION</span>
+                  <h4>현장수사</h4>
+                </div>
+                <p>장소마다 두 개의 단서가 있습니다. 한 번에 하나씩 조사하고, 모두 찾은 장소는 언제든 다시 확인할 수 있어요.</p>
+              </div>
+              <div class="detective-location-grid" id="detectiveLocationGrid"></div>
+            </section>
+
+            <section class="detective-tab-panel hidden" id="detectiveTabSuspects">
+              <div class="detective-section-head">
+                <div>
+                  <span>INTERROGATION</span>
+                  <h4>용의자 심문</h4>
+                </div>
+                <p>알리바이와 인증 코드, 개인 특징을 확인하세요. 이미 심문한 진술도 계속 다시 볼 수 있습니다.</p>
+              </div>
+              <div class="detective-suspect-grid" id="detectiveSuspectGrid"></div>
+            </section>
+
+            <section class="detective-tab-panel hidden" id="detectiveTabBoard">
+              <div class="detective-section-head">
+                <div>
+                  <span>EVIDENCE BOARD</span>
+                  <h4>증거보드</h4>
+                </div>
+                <p>확보한 증거 두 개를 선택해 연결하세요. 잘못 연결해도 불이익 없이 다시 시도할 수 있어요.</p>
+              </div>
+
+              <div class="detective-board-layout">
+                <div class="detective-evidence-area">
+                  <div class="detective-board-toolbar">
+                    <span id="detectiveSelectedEvidenceText">선택 0/2</span>
+                    <button class="mint-button" id="detectiveConnectEvidenceButton" type="button" disabled>🧷 두 증거 연결하기</button>
+                  </div>
+                  <div class="detective-evidence-grid" id="detectiveEvidenceGrid"></div>
+                  <p class="inline-message" id="detectiveBoardMessage"></p>
+                </div>
+
+                <aside class="detective-deduction-card">
+                  <div class="detective-deduction-title">
+                    <strong>확정 추리</strong>
+                    <span id="detectiveDeductionCount">0 / 3</span>
+                  </div>
+                  <div id="detectiveDeductionList" class="detective-deduction-list"></div>
+                </aside>
+              </div>
+            </section>
+
+            <section class="detective-tab-panel hidden" id="detectiveTabFinal">
+              <div class="detective-section-head">
+                <div>
+                  <span>FINAL DEDUCTION</span>
+                  <h4>최종추리</h4>
+                </div>
+                <p>확정 추리 2개 이상을 완성한 뒤 범인, 동기, 핵심 증거를 선택하세요.</p>
+              </div>
+
+              <div class="detective-final-grid">
+                <div class="detective-final-form">
+                  <label>
+                    <span>1. 범인</span>
+                    <select id="detectiveFinalCulpritSelect"><option value="">범인을 선택하세요</option></select>
+                  </label>
+                  <label>
+                    <span>2. 동기</span>
+                    <select id="detectiveFinalMotiveSelect">
+                      <option value="">동기를 선택하세요</option>
+                      <option value="money">금전</option>
+                      <option value="coverup">은폐</option>
+                      <option value="honor">명예</option>
+                      <option value="revenge">복수</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>3. 핵심 증거</span>
+                    <select id="detectiveFinalEvidenceSelect"><option value="">핵심 증거를 선택하세요</option></select>
+                  </label>
+
+                  <button class="detective-accuse-button" id="detectiveAccuseButton" type="button">⚖️ 최종 지목</button>
+                  <p class="inline-message" id="detectiveFinalMessage"></p>
+                </div>
+
+                <aside class="detective-final-side">
+                  <div class="detective-attempt-box">
+                    <span>오답 횟수</span>
+                    <strong id="detectiveWrongAttempts">0</strong>
+                    <small>틀려도 사건은 끝나지 않아요.</small>
+                  </div>
+                  <div class="detective-reward-preview">
+                    <span>현재 예상 기본 보상</span>
+                    <strong id="detectiveRewardPreview">4,200P</strong>
+                    <small id="detectiveRewardBonusPreview">풀돌 파트너 보너스 없음</small>
+                  </div>
+                </aside>
+              </div>
+
+              <div class="detective-case-closed hidden" id="detectiveCaseClosed">
+                <div class="detective-closed-stamp">CASE<br>CLOSED</div>
+                <div>
+                  <p class="section-label">INVESTIGATION COMPLETE</p>
+                  <h4 id="detectiveClosedTitle">사건 해결</h4>
+                  <p id="detectiveClosedSummary"></p>
+                  <div class="detective-closed-reward">
+                    <span>최종 보상</span>
+                    <strong id="detectiveClosedReward">0P</strong>
+                  </div>
+                  <button class="mint-button" id="detectiveNextCaseButton" type="button">다음 사건 배정</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
       </section>
     </section>
 
@@ -1411,6 +1647,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=29"></script>
+  <script src="script.js?v=30"></script>
 </body>
 </html>

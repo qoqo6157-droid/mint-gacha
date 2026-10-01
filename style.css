@@ -5869,3 +5869,1233 @@ body.gacha-cinematic-open {
 #homeCharacterHelp {
   transition: opacity .15s ease;
 }
+
+
+/* =========================================================
+   V30 - CASE FILES · 탐정 사건 수사 게임
+========================================================= */
+
+.detective-menu-card span {
+  filter: drop-shadow(0 4px 8px rgba(26,81,69,.18));
+}
+
+.detective-shell {
+  --detective-ink: #243b36;
+  --detective-paper: #fbfaf4;
+  --detective-paper-2: #f3f0e5;
+  --detective-mint: #39bd93;
+  --detective-red: #c65a64;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #d9e9e2;
+  border-radius: 24px;
+  background:
+    linear-gradient(rgba(49,81,70,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(49,81,70,.025) 1px, transparent 1px),
+    var(--detective-paper);
+  background-size: 22px 22px;
+  box-shadow: 0 18px 46px rgba(35,83,70,.10);
+}
+
+.detective-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 25px 26px 20px;
+  border-bottom: 1px solid #dee9e3;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(69,202,160,.12), transparent 30%),
+    rgba(255,255,255,.70);
+}
+
+.detective-label {
+  color: #269876 !important;
+  letter-spacing: 2px;
+}
+
+.detective-head h3 {
+  margin: 3px 0 7px;
+  color: var(--detective-ink);
+  font-size: 28px;
+  font-weight: 1000;
+  letter-spacing: -1.4px;
+}
+
+.detective-head p:not(.section-label) {
+  margin: 0;
+  color: #73867f;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.detective-head-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.detective-head-actions button {
+  font-size: 9px;
+}
+
+.detective-case-strip {
+  display: grid;
+  grid-template-columns: .75fr 1.65fr .8fr .8fr;
+  gap: 1px;
+  border-bottom: 1px solid #dde9e4;
+  background: #dce8e3;
+}
+
+.detective-case-strip > div {
+  min-width: 0;
+  padding: 12px 15px;
+  background: rgba(255,255,255,.91);
+}
+
+.detective-case-strip span,
+.detective-partner-select > span {
+  display: block;
+  margin-bottom: 3px;
+  color: #8a9b95;
+  font-size: 7px;
+  font-weight: 1000;
+  letter-spacing: .7px;
+}
+
+.detective-case-strip strong {
+  display: block;
+  overflow: hidden;
+  color: #38564c;
+  font-size: 10px;
+  font-weight: 1000;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detective-partner-row {
+  display: grid;
+  grid-template-columns: minmax(220px,.8fr) 1.5fr;
+  gap: 10px;
+  padding: 13px 18px;
+  border-bottom: 1px solid #e1ebe7;
+  background: rgba(248,252,250,.88);
+}
+
+.detective-partner-select select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d5e6df;
+  border-radius: 10px;
+  outline: none;
+  background: white;
+  color: #435f56;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.detective-partner-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid #d8e9e2;
+  border-radius: 12px;
+  background: white;
+}
+
+.detective-partner-thumb {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #eaf7f2;
+  color: #53a98d;
+  font-size: 8px;
+  font-weight: 1000;
+}
+
+.detective-partner-thumb.full {
+  box-shadow: 0 0 0 2px #e6c85e inset, 0 0 14px rgba(220,187,72,.18);
+}
+
+.detective-partner-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detective-partner-card strong {
+  display: block;
+  color: #3e5c52;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.detective-partner-card small {
+  display: block;
+  margin-top: 2px;
+  color: #879b94;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.detective-progress-wrap {
+  padding: 12px 18px 14px;
+  background: rgba(255,255,255,.82);
+}
+
+.detective-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+
+.detective-progress-head strong {
+  color: #3b5b51;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.detective-progress-head span {
+  color: #82978f;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.detective-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7efec;
+}
+
+.detective-progress-track i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,#38c295,#83dfc2);
+  box-shadow: 0 0 12px rgba(55,191,147,.22);
+  transition: width .35s ease;
+}
+
+.detective-empty {
+  padding: 54px 20px 60px;
+  text-align: center;
+}
+
+.detective-empty-file {
+  width: 106px;
+  height: 126px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  border: 1px solid #cfddd8;
+  border-radius: 5px 18px 7px 7px;
+  background: linear-gradient(145deg,#fffdf6,#efeee6);
+  color: #748b82;
+  box-shadow: 8px 10px 0 rgba(54,89,77,.06);
+  transform: rotate(-2deg);
+}
+
+.detective-empty-file span {
+  font-family: Georgia, serif;
+  font-size: 44px;
+  font-weight: 900;
+}
+
+.detective-empty-file strong {
+  font-size: 7px;
+  letter-spacing: 1px;
+}
+
+.detective-empty h4 {
+  margin: 0 0 7px;
+  color: #3d5c52;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.detective-empty p {
+  max-width: 520px;
+  margin: 0 auto 15px;
+  color: #839790;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.detective-tabs {
+  position: sticky;
+  top: 68px;
+  z-index: 25;
+  display: grid;
+  grid-template-columns: repeat(5,1fr);
+  gap: 5px;
+  padding: 9px 12px;
+  border-top: 1px solid #e0ebe6;
+  border-bottom: 1px solid #dce9e4;
+  background: rgba(249,252,250,.94);
+  backdrop-filter: blur(12px);
+}
+
+.detective-tabs button {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #748c83;
+  font-size: 9px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.detective-tabs button.active {
+  border-color: #a8e1ce;
+  background: #e6fff6;
+  color: #16956e;
+}
+
+.detective-tab-panel {
+  padding: 20px;
+}
+
+.detective-overview-grid {
+  display: grid;
+  grid-template-columns: 1.5fr .8fr;
+  gap: 13px;
+}
+
+.detective-dossier,
+.detective-memo-card,
+.detective-history-card,
+.detective-final-form,
+.detective-final-side,
+.detective-deduction-card {
+  border: 1px solid #dbe7e2;
+  border-radius: 16px;
+  background: rgba(255,255,255,.88);
+}
+
+.detective-dossier {
+  position: relative;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.detective-dossier::after {
+  content: "CONFIDENTIAL";
+  position: absolute;
+  right: -18px;
+  bottom: 16px;
+  color: rgba(189,79,88,.08);
+  font: 1000 28px/1 Georgia, serif;
+  letter-spacing: 2px;
+  transform: rotate(-10deg);
+}
+
+.detective-dossier-top,
+.detective-history-head,
+.detective-memo-head,
+.detective-section-head,
+.detective-board-toolbar,
+.detective-deduction-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detective-dossier-top span {
+  color: #3d7766;
+  font-size: 8px;
+  font-weight: 1000;
+  letter-spacing: 1px;
+}
+
+.detective-dossier-top em {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #fff1e5;
+  color: #b8733b;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 1000;
+}
+
+.detective-dossier-top em.closed {
+  background: #e5fff5;
+  color: #20966f;
+}
+
+.detective-dossier h4 {
+  margin: 12px 0 6px;
+  color: #2e4b42;
+  font-size: 22px;
+  font-weight: 1000;
+  letter-spacing: -.7px;
+}
+
+.detective-dossier > p {
+  margin: 0 0 15px;
+  color: #72867f;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.detective-facts {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 7px;
+}
+
+.detective-facts div {
+  padding: 10px 11px;
+  border: 1px solid #e2ebe7;
+  border-radius: 10px;
+  background: #fafcfb;
+}
+
+.detective-facts span,
+.detective-opening-note strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #8b9e97;
+  font-size: 7px;
+  font-weight: 1000;
+}
+
+.detective-facts strong {
+  color: #48645b;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.detective-opening-note {
+  margin-top: 10px;
+  padding: 11px 12px;
+  border-left: 3px solid #6ccdaf;
+  background: #f3fbf8;
+}
+
+.detective-opening-note p {
+  margin: 0;
+  color: #688078;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.detective-memo-card {
+  padding: 15px;
+  background:
+    repeating-linear-gradient(transparent 0 25px,rgba(75,114,101,.06) 25px 26px),
+    #fffef7;
+}
+
+.detective-memo-head span {
+  color: #506b62;
+  font-size: 8px;
+  font-weight: 1000;
+}
+
+.detective-memo-head strong {
+  color: #b37f3b;
+  font-size: 7px;
+}
+
+.detective-memo-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.detective-memo-list > div {
+  position: relative;
+  padding-left: 14px;
+  color: #70857e;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.detective-memo-list > div::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  color: #42ac8a;
+}
+
+.detective-history-card {
+  margin-top: 12px;
+  padding: 13px 15px;
+}
+
+.detective-history-head strong {
+  color: #486259;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.detective-history-head small {
+  color: #97a7a1;
+  font-size: 7px;
+}
+
+.detective-history-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.detective-history-item {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px dashed #e2eae7;
+}
+
+.detective-history-item > span {
+  color: #2ca17d;
+  font-size: 8px;
+  font-weight: 1000;
+}
+
+.detective-history-item strong {
+  display: block;
+  color: #536b63;
+  font-size: 8px;
+}
+
+.detective-history-item small,
+.detective-history-empty {
+  color: #91a19c;
+  font-size: 7px;
+}
+
+.detective-section-head {
+  align-items: flex-end;
+  margin-bottom: 13px;
+}
+
+.detective-section-head span {
+  color: #2ca17c;
+  font-size: 7px;
+  font-weight: 1000;
+  letter-spacing: 1px;
+}
+
+.detective-section-head h4 {
+  margin: 2px 0 0;
+  color: #344f46;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.detective-section-head > p {
+  max-width: 540px;
+  margin: 0;
+  color: #83968f;
+  font-size: 8px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.detective-location-grid,
+.detective-suspect-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.detective-location-card,
+.detective-suspect-card {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #dce9e4;
+  border-radius: 14px;
+  background: rgba(255,255,255,.88);
+}
+
+.detective-location-card {
+  grid-template-columns: 52px 1fr auto;
+}
+
+.detective-location-card.complete {
+  border-color: #b7e5d6;
+  background: #f4fffb;
+}
+
+.detective-location-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #eff8f5;
+  font-size: 21px;
+}
+
+.detective-location-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.detective-location-title strong {
+  color: #435e55;
+  font-size: 11px;
+  font-weight: 1000;
+}
+
+.detective-location-title span {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #e6f8f2;
+  color: #35a481;
+  font-size: 7px;
+  font-weight: 1000;
+}
+
+.detective-location-info p {
+  margin: 4px 0 7px;
+  color: #82958e;
+  font-size: 8px;
+}
+
+.detective-found-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.detective-found-chips span {
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: #eafff7;
+  color: #2f9e7c;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.detective-found-chips small {
+  color: #a0ada8;
+  font-size: 7px;
+}
+
+.detective-location-card > button,
+.detective-suspect-card > button {
+  min-width: 135px;
+  font-size: 8px;
+}
+
+.detective-suspect-card {
+  grid-template-columns: 48px 1fr auto;
+  align-items: start;
+}
+
+.detective-suspect-card.interviewed {
+  background: #fbfffd;
+}
+
+.detective-suspect-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d4e5df;
+  border-radius: 50%;
+  background: linear-gradient(145deg,#eff7f4,#fff);
+  color: #588075;
+  font-size: 15px;
+  font-weight: 1000;
+}
+
+.detective-suspect-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.detective-suspect-title strong {
+  display: block;
+  color: #3f5c53;
+  font-size: 11px;
+  font-weight: 1000;
+}
+
+.detective-suspect-title small {
+  display: block;
+  margin-top: 2px;
+  color: #8da099;
+  font-size: 7px;
+}
+
+.detective-suspect-title > span {
+  color: #3ea986;
+  font-size: 7px;
+  font-weight: 1000;
+}
+
+.detective-statement {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
+.detective-statement > div {
+  padding: 8px;
+  border: 1px solid #e5ece9;
+  border-radius: 9px;
+  background: #fafcfb;
+}
+
+.detective-statement dt {
+  color: #8ca099;
+  font-size: 7px;
+  font-weight: 1000;
+}
+
+.detective-statement dd {
+  margin: 3px 0 0;
+  color: #627b72;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.detective-suspect-locked {
+  margin: 9px 0 0;
+  color: #94a39e;
+  font-size: 8px;
+}
+
+.detective-code-compare {
+  margin-top: 7px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #f2f7f5;
+  color: #7a8e87;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.detective-code-compare.match {
+  background: #fff1f2;
+  color: #ba5c66;
+}
+
+.detective-board-layout {
+  display: grid;
+  grid-template-columns: 1.5fr .7fr;
+  gap: 12px;
+}
+
+.detective-board-toolbar {
+  margin-bottom: 9px;
+  padding: 8px 10px;
+  border: 1px solid #dce8e4;
+  border-radius: 11px;
+  background: #fbfdfc;
+}
+
+.detective-board-toolbar span {
+  color: #6b8279;
+  font-size: 8px;
+  font-weight: 1000;
+}
+
+.detective-board-toolbar button {
+  min-width: 150px;
+  font-size: 8px;
+}
+
+.detective-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 8px;
+}
+
+.detective-evidence-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 8px;
+  min-height: 98px;
+  padding: 11px 10px 20px;
+  border: 1px solid #dce8e4;
+  border-radius: 12px;
+  background: white;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: .15s ease;
+}
+
+.detective-evidence-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(47,102,85,.08);
+}
+
+.detective-evidence-card.selected {
+  border-color: #54c5a1;
+  background: #eafff7;
+  box-shadow: 0 0 0 2px rgba(76,196,158,.13);
+}
+
+.detective-evidence-card.red-herring {
+  border-style: dashed;
+}
+
+.detective-evidence-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #eff7f4;
+  font-size: 17px;
+}
+
+.detective-evidence-card strong {
+  display: block;
+  color: #3f5c53;
+  font-size: 9px;
+  font-weight: 1000;
+}
+
+.detective-evidence-card small {
+  display: block;
+  margin-top: 4px;
+  color: #839790;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.detective-evidence-card em {
+  position: absolute;
+  left: 10px;
+  bottom: 6px;
+  color: #a1ada9;
+  font-size: 6px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.detective-board-empty {
+  grid-column: 1 / -1;
+  padding: 36px 16px;
+  border: 1px dashed #d7e4df;
+  border-radius: 13px;
+  color: #91a29c;
+  font-size: 9px;
+  text-align: center;
+}
+
+.detective-deduction-card {
+  padding: 13px;
+}
+
+.detective-deduction-title strong {
+  color: #486158;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.detective-deduction-title span {
+  color: #2ca17e;
+  font-size: 8px;
+  font-weight: 1000;
+}
+
+.detective-deduction-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.detective-deduction-item {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  padding: 9px;
+  border: 1px dashed #dbe5e1;
+  border-radius: 10px;
+  background: #fafcfb;
+  opacity: .68;
+}
+
+.detective-deduction-item.done {
+  border-style: solid;
+  border-color: #bce6d8;
+  background: #effdf8;
+  opacity: 1;
+}
+
+.detective-deduction-item > span {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #edf3f1;
+  color: #8b9c96;
+  font-size: 11px;
+  font-weight: 1000;
+}
+
+.detective-deduction-item.done > span {
+  background: #53c39f;
+  color: white;
+}
+
+.detective-deduction-item strong {
+  display: block;
+  color: #516a61;
+  font-size: 8px;
+}
+
+.detective-deduction-item small {
+  display: block;
+  margin-top: 3px;
+  color: #8b9d96;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.detective-final-grid {
+  display: grid;
+  grid-template-columns: 1.25fr .65fr;
+  gap: 12px;
+}
+
+.detective-final-form,
+.detective-final-side {
+  padding: 15px;
+}
+
+.detective-final-form {
+  display: grid;
+  gap: 10px;
+}
+
+.detective-final-form label span {
+  display: block;
+  margin-bottom: 5px;
+  color: #667f76;
+  font-size: 8px;
+  font-weight: 1000;
+}
+
+.detective-final-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #d6e6e0;
+  border-radius: 10px;
+  outline: none;
+  background: white;
+  color: #425f55;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.detective-accuse-button {
+  min-height: 45px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(135deg,#344f47,#1f3b34);
+  color: white;
+  font-size: 10px;
+  font-weight: 1000;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(31,59,52,.14);
+}
+
+.detective-accuse-button:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+.detective-final-side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.detective-attempt-box,
+.detective-reward-preview {
+  padding: 14px;
+  border: 1px solid #e0e9e6;
+  border-radius: 11px;
+  background: #fbfdfc;
+}
+
+.detective-attempt-box span,
+.detective-reward-preview span {
+  display: block;
+  color: #8b9d96;
+  font-size: 7px;
+  font-weight: 1000;
+}
+
+.detective-attempt-box strong,
+.detective-reward-preview strong {
+  display: block;
+  margin: 5px 0;
+  color: #3d5b51;
+  font-size: 22px;
+  font-weight: 1000;
+}
+
+.detective-attempt-box small,
+.detective-reward-preview small {
+  color: #8c9e97;
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.detective-case-closed {
+  position: relative;
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 18px;
+  align-items: center;
+  margin-top: 15px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid #bfe5d8;
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 0 0,rgba(75,204,162,.13),transparent 32%),
+    white;
+}
+
+.detective-closed-stamp {
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+  border: 5px double #b4565e;
+  border-radius: 50%;
+  color: #b4565e;
+  font: 1000 18px/1.1 Georgia, serif;
+  letter-spacing: 1px;
+  text-align: center;
+  transform: rotate(-8deg);
+  opacity: .9;
+}
+
+.detective-case-closed h4 {
+  margin: 3px 0 6px;
+  color: #35544a;
+  font-size: 19px;
+  font-weight: 1000;
+}
+
+.detective-case-closed p:not(.section-label) {
+  margin: 0 0 10px;
+  color: #70877f;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.detective-closed-reward {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #e9fff7;
+}
+
+.detective-closed-reward span {
+  color: #6c887e;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.detective-closed-reward strong {
+  color: #1f9d75;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.detective-case-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.detective-confetti {
+  position: absolute;
+  left: 50%;
+  top: 65%;
+  width: 7px;
+  height: 13px;
+  border-radius: 2px;
+  background: #5bc5a3;
+  animation: detectiveConfetti 1.25s cubic-bezier(.18,.8,.25,1) var(--dd) both;
+}
+
+.detective-confetti:nth-child(3n) { background: #e1c260; }
+.detective-confetti:nth-child(4n) { background: #dd7080; }
+.detective-confetti:nth-child(5n) { background: #6f9fd7; }
+
+.detective-shell.case-assigned {
+  animation: detectiveAssigned .8s ease;
+}
+
+@keyframes detectiveAssigned {
+  0% { transform: scale(.99); filter: brightness(1); }
+  45% { transform: scale(1.006); filter: brightness(1.07) saturate(1.12); box-shadow: 0 0 0 4px rgba(60,191,149,.08); }
+  100% { transform: scale(1); filter: none; }
+}
+
+@keyframes detectiveConfetti {
+  0% { opacity: 0; transform: translate(0,0) rotate(0) scale(.5); }
+  16% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx),var(--dy)) rotate(480deg) scale(.85); }
+}
+
+@media (max-width: 880px) {
+  .detective-head {
+    flex-direction: column;
+  }
+
+  .detective-head-actions {
+    justify-content: flex-start;
+  }
+
+  .detective-case-strip {
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  .detective-partner-row,
+  .detective-overview-grid,
+  .detective-board-layout,
+  .detective-final-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detective-tabs {
+    top: 0;
+    overflow-x: auto;
+    grid-template-columns: repeat(5,minmax(110px,1fr));
+  }
+
+  .detective-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .detective-section-head > p {
+    text-align: left;
+  }
+}
+
+@media (max-width: 620px) {
+  .detective-head {
+    padding: 18px 15px 14px;
+  }
+
+  .detective-head h3 {
+    font-size: 23px;
+  }
+
+  .detective-head-actions {
+    width: 100%;
+  }
+
+  .detective-head-actions button {
+    flex: 1;
+  }
+
+  .detective-case-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .detective-case-strip > div {
+    padding: 10px;
+  }
+
+  .detective-partner-row,
+  .detective-progress-wrap,
+  .detective-tab-panel {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .detective-progress-head {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .detective-tabs {
+    padding: 7px;
+    scrollbar-width: none;
+  }
+
+  .detective-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .detective-facts,
+  .detective-evidence-grid,
+  .detective-statement {
+    grid-template-columns: 1fr;
+  }
+
+  .detective-location-card,
+  .detective-suspect-card {
+    grid-template-columns: 44px 1fr;
+  }
+
+  .detective-location-card > button,
+  .detective-suspect-card > button {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .detective-board-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .detective-board-toolbar button {
+    width: 100%;
+  }
+
+  .detective-case-closed {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .detective-closed-stamp {
+    margin: 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detective-shell,
+  .detective-confetti,
+  .detective-progress-track i,
+  .detective-evidence-card {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
