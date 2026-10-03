@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>민트 가챠</title>
-  <link rel="stylesheet" href="style.css?v=33">
+  <link rel="stylesheet" href="style.css?v=34">
 </head>
 <body>
   <header>
@@ -538,14 +538,99 @@
             </div>
           </div>
 
+          <div class="detective-mode-area">
+            <div class="detective-mode-tabs" id="detectiveModeTabs">
+              <button type="button" class="active" data-detective-mode="story">
+                <span>📚</span>
+                <strong>CASE STORY</strong>
+                <small>직접 제작된 스토리 사건</small>
+              </button>
+              <button type="button" data-detective-mode="endless">
+                <span>♾️</span>
+                <strong>ENDLESS CASE</strong>
+                <small>시드 기반 무한 사건 생성</small>
+              </button>
+              <button type="button" data-detective-mode="daily">
+                <span>📅</span>
+                <strong>오늘의 사건</strong>
+                <small>오늘 모두에게 같은 사건</small>
+              </button>
+            </div>
+
+            <div class="detective-mode-tools">
+              <div class="detective-mode-description">
+                <span id="detectiveModeBadge">CASE STORY</span>
+                <strong id="detectiveModeTitle">스토리 사건</strong>
+                <p id="detectiveModeDescription">직접 제작된 사건을 플레이합니다.</p>
+              </div>
+
+              <div class="detective-story-tools" id="detectiveStoryTools">
+                <label>
+                  <span>스토리 사건 선택</span>
+                  <select id="detectiveStorySelect">
+                    <option value="museum">CASE STORY 01 · 백야 미술관의 빈 액자</option>
+                    <option value="hotel">CASE STORY 02 · 라일락 호텔 707호의 사라진 원고</option>
+                    <option value="lab">CASE STORY 03 · 새벽 연구동의 잠긴 시제품</option>
+                  </select>
+                </label>
+                <small id="detectiveStoryClearText">최초 해결 보너스 +800P</small>
+              </div>
+
+              <div class="detective-endless-tools hidden" id="detectiveEndlessTools">
+                <label>
+                  <span>난이도</span>
+                  <select id="detectiveDifficultySelect">
+                    <option value="normal">NORMAL · 용의자 4명</option>
+                    <option value="hard">HARD · 용의자 5명</option>
+                    <option value="nightmare">NIGHTMARE · 용의자 6명</option>
+                  </select>
+                </label>
+                <div class="detective-seed-row">
+                  <label>
+                    <span>CASE SEED</span>
+                    <input id="detectiveSeedInput" maxlength="32" placeholder="EC-N-XXXXXXXX">
+                  </label>
+                  <button type="button" class="white-button" id="detectiveLoadSeedButton">시드 불러오기</button>
+                  <button type="button" class="white-button" id="detectiveCopySeedButton">현재 시드 복사</button>
+                </div>
+                <small>최근 10건과 장소·사건종류·범행방법·진범직업이 너무 비슷하면 자동으로 다시 생성합니다.</small>
+              </div>
+
+              <div class="detective-daily-tools hidden" id="detectiveDailyTools">
+                <div>
+                  <span>오늘의 CASE SEED</span>
+                  <strong id="detectiveDailySeed">DAILY-00000000-V1</strong>
+                </div>
+                <div>
+                  <span>일일 해결 상태</span>
+                  <strong id="detectiveDailyStatus">미해결 · 특별 보상 +1,000P</strong>
+                </div>
+                <div>
+                  <span>연속 해결</span>
+                  <strong id="detectiveDailyStreak">0일</strong>
+                </div>
+              </div>
+
+              <p class="inline-message detective-mode-message" id="detectiveModeMessage"></p>
+            </div>
+          </div>
+
           <div class="detective-case-strip">
+            <div>
+              <span>MODE</span>
+              <strong id="detectiveCaseMode">CASE STORY</strong>
+            </div>
             <div>
               <span>CASE FILE</span>
               <strong id="detectiveCaseNumber">NO CASE</strong>
             </div>
-            <div>
+            <div class="wide">
               <span>현재 사건</span>
               <strong id="detectiveCaseTitle">새 사건을 배정해주세요</strong>
+            </div>
+            <div>
+              <span>CASE SEED</span>
+              <strong id="detectiveCaseSeed">STORY</strong>
             </div>
             <div>
               <span>보유 포인트</span>
@@ -585,7 +670,7 @@
               <strong>CASE UNASSIGNED</strong>
             </div>
             <h4>아직 배정된 사건이 없어요.</h4>
-            <p>새 사건을 배정받으면 3개의 사건 테마 중 하나와 진범이 무작위로 결정됩니다.</p>
+            <p>위에서 모드를 고른 뒤 사건을 시작하세요. ENDLESS CASE는 같은 시드라면 언제 다시 열어도 같은 사건이 생성됩니다.</p>
             <button class="mint-button" id="detectiveFirstCaseButton" type="button">🔎 첫 사건 배정받기</button>
           </div>
 
@@ -611,8 +696,8 @@
                   <div class="detective-facts">
                     <div><span>사라진 대상</span><strong id="detectiveMissingItem">-</strong></div>
                     <div><span>핵심 사건 시각</span><strong id="detectiveIncidentTime">-</strong></div>
-                    <div><span>조사 장소</span><strong>4곳</strong></div>
-                    <div><span>용의자</span><strong>4명</strong></div>
+                    <div><span>조사 장소</span><strong id="detectivePlaceCount">4곳</strong></div>
+                    <div><span>용의자</span><strong id="detectiveSuspectCount">4명</strong></div>
                   </div>
 
                   <div class="detective-opening-note">
@@ -736,6 +821,8 @@
                       <option value="coverup">은폐</option>
                       <option value="honor">명예</option>
                       <option value="revenge">복수</option>
+                      <option value="jealousy">질투</option>
+                      <option value="coercion">협박</option>
                     </select>
                   </label>
                   <label>
@@ -1735,6 +1822,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=33"></script>
+  <script src="script.js?v=34"></script>
 </body>
 </html>
